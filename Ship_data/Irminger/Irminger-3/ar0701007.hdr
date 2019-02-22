@@ -1,0 +1,26 @@
+* Sea-Bird SBE 9 Data File:
+* FileName = D:\Data\ar0701007.hdr
+* Software Version Seasave V 7.23.2
+* Temperature SN = 4406
+* Conductivity SN = 3042
+* Number of Bytes Per Scan = 44
+* Number of Voltage Words = 5
+* Number of Scans Averaged by the Deck Unit = 1
+* System UpLoad Time = Jul 11 2016 19:29:37
+* NMEA Latitude = 59 58.33 N
+* NMEA Longitude = 039 30.33 W
+* NMEA UTC (Time) = Jul 11 2016  19:24:31
+* Store Lat/Lon Data = Append to Every Scan
+* SBE 11 Firmware Version 4.6
+* GPIB address = 1
+* add external voltage to data stream
+* underwater unit scan rate = 24 Hz
+* Paroscientific Digiquartz pressure sensor with high resolution counter
+* number of scans to advance conductivity = 1.750
+* two 12 bit A/D voltages per word start with word # 5
+* number of words from the deck unit = 13
+** Site Irminger Hybrid profiler mooring
+** G. Tupper Tupper
+** Station # 007
+* System UTC = Jul 11 2016 19:29:37
+*END*

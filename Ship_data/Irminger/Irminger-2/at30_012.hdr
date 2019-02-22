@@ -1,0 +1,16 @@
+* Sea-Bird SBE 9 Data File:
+* FileName = C:\data\ctd\at30_012.hdr
+* Software Version Seasave V 7.21f
+* Temperature SN = 2265
+* Conductivity SN = 3021
+* Number of Bytes Per Scan = 40
+* Number of Voltage Words = 5
+* Number of Scans Averaged by the Deck Unit = 1
+* System UpLoad Time = Aug 23 2015 17:50:36
+* NMEA Latitude = 59 59.98 N
+* NMEA Longitude = 039 28.96 W
+* NMEA UTC (Time) = Aug 23 2015  16:50:38
+* Store Lat/Lon Data = Append to Every Scan
+** Cal/Val for HYPM-2 
+* System UTC = Aug 23 2015 16:50:36
+*END*
