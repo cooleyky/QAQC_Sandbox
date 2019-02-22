@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Strip >
+  <Version value="7.21a" />
+  <ServerName value="Strip" />
+  <InputDir value="" />
+  <InputFileArray size="1" GrowBy="-1" >
+    <ArrayItem index="0" value="" />
+  </InputFileArray>
+  <OutputDir value="" />
+  <NameAppend value="" />
+  <OutputFile value="" />
+  <LastProcessed value="0" />
+  <CalcArray Size="22" >
+    <CalcArrayItem index="0" CalcID="65" >
+      <Calc UnitID="3" Ordinal="0" >
+        <FullName value="Pressure, Digiquartz [db]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="1" CalcID="17" >
+      <Calc UnitID="31" Ordinal="0" >
+        <FullName value="Depth [salt water, m]" />
+        <Latitude value="0.000000" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="2" CalcID="81" >
+      <Calc UnitID="6" Ordinal="0" >
+        <FullName value="Temperature [ITS-90, deg C]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="3" CalcID="81" >
+      <Calc UnitID="6" Ordinal="1" >
+        <FullName value="Temperature, 2 [ITS-90, deg C]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="4" CalcID="12" >
+      <Calc UnitID="41" Ordinal="0" >
+        <FullName value="Conductivity [mS/cm]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="5" CalcID="12" >
+      <Calc UnitID="41" Ordinal="1" >
+        <FullName value="Conductivity, 2 [mS/cm]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="6" CalcID="55" >
+      <Calc UnitID="40" Ordinal="0" >
+        <FullName value="Oxygen, SBE 43 [ml/l]" />
+        <WindowSize value="2.000000" />
+        <ApplyHysteresisCorrection value="1" />
+        <ApplyTauCorrection value="1" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="7" CalcID="57" >
+      <Calc UnitID="63" Ordinal="0" >
+        <FullName value="Oxygen raw, SBE 43 [V]" />
+        <ApplyHysteresisCorrection value="1" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="8" CalcID="77" >
+      <Calc UnitID="-1" Ordinal="0" >
+        <FullName value="SPAR/Surface Irradiance" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="9" CalcID="93" >
+      <Calc UnitID="38" Ordinal="0" >
+        <FullName value="Fluorescence, WET Labs ECO-AFL/FL [mg/m^3]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="10" CalcID="87" >
+      <Calc UnitID="-1" Ordinal="0" >
+        <FullName value="Upoly 0, Upoly 0, FLNTU turbidity" />
+        <CalcName value="Upoly 0, FLNTU turbidity" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="11" CalcID="5" >
+      <Calc UnitID="46" Ordinal="0" >
+        <FullName value="Beam Transmission, Chelsea/Seatech/WET Labs CStar [%]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="12" CalcID="3" >
+      <Calc UnitID="24" Ordinal="0" >
+        <FullName value="Beam Attenuation, Chelsea/Seatech/WET Labs CStar [1/m]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="13" CalcID="89" >
+      <Calc UnitID="63" Ordinal="2" >
+        <FullName value="Voltage 2" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="14" CalcID="1" >
+      <Calc UnitID="29" Ordinal="0" >
+        <FullName value="Altimeter [m]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="15" CalcID="72" >
+      <Calc UnitID="-1" Ordinal="0" >
+        <FullName value="Scan Count" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="16" CalcID="55" >
+      <Calc UnitID="40" Ordinal="0" >
+        <FullName value="Oxygen, SBE 43 [ml/l]" />
+        <WindowSize value="2.000000" />
+        <ApplyHysteresisCorrection value="1" />
+        <ApplyTauCorrection value="1" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="17" CalcID="55" >
+      <Calc UnitID="68" Ordinal="0" >
+        <FullName value="Oxygen, SBE 43 [dov/dt]" />
+        <WindowSize value="2.000000" />
+        <ApplyHysteresisCorrection value="1" />
+        <ApplyTauCorrection value="1" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="18" CalcID="73" >
+      <Calc UnitID="-1" Ordinal="0" >
+        <FullName value="Scans Per Bin" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="19" CalcID="70" >
+      <Calc UnitID="49" Ordinal="0" >
+        <FullName value="Salinity, Practical [PSU]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="20" CalcID="70" >
+      <Calc UnitID="49" Ordinal="1" >
+        <FullName value="Salinity, Practical, 2 [PSU]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="21" CalcID="74" >
+      <Calc UnitID="33" Ordinal="0" >
+        <FullName value="Sound Velocity [Chen-Millero, m/s]" />
+      </Calc>
+    </CalcArrayItem>
+  </CalcArray>
+  <SelectArray >
+    <ArrayItem index="0" value="1" />
+    <ArrayItem index="1" value="1" />
+    <ArrayItem index="2" value="1" />
+    <ArrayItem index="3" value="1" />
+    <ArrayItem index="4" value="1" />
+    <ArrayItem index="5" value="1" />
+    <ArrayItem index="6" value="0" />
+    <ArrayItem index="7" value="1" />
+    <ArrayItem index="8" value="0" />
+    <ArrayItem index="9" value="1" />
+    <ArrayItem index="10" value="1" />
+    <ArrayItem index="11" value="1" />
+    <ArrayItem index="12" value="1" />
+    <ArrayItem index="13" value="1" />
+    <ArrayItem index="14" value="1" />
+    <ArrayItem index="15" value="1" />
+    <ArrayItem index="16" value="1" />
+    <ArrayItem index="17" value="1" />
+    <ArrayItem index="18" value="1" />
+    <ArrayItem index="19" value="1" />
+    <ArrayItem index="20" value="1" />
+    <ArrayItem index="21" value="1" />
+  </SelectArray>
+</Strip>

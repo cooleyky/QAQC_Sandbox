@@ -1,0 +1,19 @@
+* Sea-Bird SBE 9 Data File:
+* FileName = D:\Data\ar30-03001.hdr
+* Software Version Seasave V 7.23.2
+* Temperature SN = 4230
+* Conductivity SN = 2148
+* Number of Bytes Per Scan = 44
+* Number of Voltage Words = 5
+* Number of Scans Averaged by the Deck Unit = 1
+* Append System Time to Every Scan
+* System UpLoad Time = Jun 06 2018 08:16:04
+* NMEA Latitude = 62 46.29 N
+* NMEA Longitude = 028 39.40 W
+* NMEA UTC (Time) = Jun 06 2018  08:16:04
+* Store Lat/Lon Data = Append to Every Scan
+** Cruise ID: ar30-03
+** Chief Sci: Macdonald
+** Station ID: 001
+* System UTC = Jun 06 2018 08:16:04
+*END*

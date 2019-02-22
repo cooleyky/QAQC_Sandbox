@@ -1,0 +1,21 @@
+* Sea-Bird SBE 9 Data File:
+* FileName = D:\Data\ar30-03014.hdr
+* Software Version Seasave V 7.23.2
+* Temperature SN = 4312
+* Conductivity SN = 2148
+* Number of Bytes Per Scan = 44
+* Number of Voltage Words = 5
+* Number of Scans Averaged by the Deck Unit = 1
+* Append System Time to Every Scan
+* System UpLoad Time = Jun 15 2018 15:52:39
+* NMEA Latitude = 59 44.59 N
+* NMEA Longitude = 039 35.05 W
+* NMEA UTC (Time) = Jun 15 2018  15:52:39
+* Store Lat/Lon Data = Append to Every Scan
+** Cruise ID: ar30-03
+** Chief Sci: Macdonald
+** Station #: 014
+** Site ID: Irminger 5 OSNAP CAB
+** Full ocean depth cast at OSNAP CAB site. 3 bottom releases tested.
+* System UTC = Jun 15 2018 15:52:39
+*END*

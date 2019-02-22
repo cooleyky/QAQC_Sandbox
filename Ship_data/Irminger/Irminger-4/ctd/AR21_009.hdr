@@ -1,0 +1,16 @@
+* Sea-Bird SBE 9 Data File:
+* FileName = D:\Data\AR21_009.hdr
+* Software Version Seasave V 7.23.2
+* Temperature SN = 4155
+* Conductivity SN = 2645
+* Number of Bytes Per Scan = 40
+* Number of Voltage Words = 5
+* Number of Scans Averaged by the Deck Unit = 1
+* System UpLoad Time = Aug 06 2017 21:22:51
+* NMEA Latitude = 59 58.27 N
+* NMEA Longitude = 039 30.81 W
+* NMEA UTC (Time) = Aug 06 2017  21:22:51
+* Store Lat/Lon Data = Append to Every Scan
+** Test cast to check pump1 and acoustic device for James
+* System UTC = Aug 06 2017 21:22:51
+*END*

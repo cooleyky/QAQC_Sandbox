@@ -1,0 +1,27 @@
+Vessel: R/V Knorr
+Institution: WHOI
+Cruise: kn221-04
+Start Port: Reykjavik, Iceland
+End Port: Woods Hole, MA
+Chief Scientist: Robert Weller
+Project: OOI Mooring
+Area:  Site off the southeast edge of Greenland
+Master: Kent Sheasley
+SSSG: Allison Heater and Tina Thomas
+
+Notes:
+
+2014-09-21 ~ 00:32 GMT    Pump for sea water flow through system turned off due to leak in piping
+			  Thermosalinograph and Fluorometer data invalid
+2014-09-21 ~ 14:06 GMT    Alternate sea water flow provided to thermosalinograph and fluorometer -
+                          primarily for use in finishing seabeam survey
+2014-09-21 ~ 16:45 GMT    Alternative flow to thermosalinograph and fluorometer turned off - survey complete
+                          Seabeam turned off - entered Canadian Waters
+                          ADCP turned off - entered Canadian Waters
+
+2014-09-23  02:54 GMT     Port Vaisala stops outputting data
+            08:35 GMT     The lack of data is discovered and the sensor is reset 
+                          The Port Vaisala now outputting data again
+
+2014-09-25  19:27 GMT     Both Vaisala weather sensors stop outputting data
+            19:58 GMT     Cycling power on the Vaisalas bring both sensors back to life - outputting data again

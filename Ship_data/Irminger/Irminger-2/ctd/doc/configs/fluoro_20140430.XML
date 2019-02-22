@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FluoroWetlabECO_AFL_FL_Sensor SensorID="20" SB_ConfigCTD_FileVersion="7.21.0.7" >
+  <SerialNumber>FLNTURT-1012</SerialNumber>
+  <CalibrationDate>2014-April-30</CalibrationDate>
+  <ScaleFactor>6.00000000e+000</ScaleFactor>
+  <!-- Dark output -->
+  <Vblank>0.0940</Vblank>
+</FluoroWetlabECO_AFL_FL_Sensor>

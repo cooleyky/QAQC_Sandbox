@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DisplaySetup >
+  <Display Type="1" >
+    <FixedViewData >
+      <SelCalcData Size="13" >
+        <SelCalcRow index="0" >
+          <CalcID value="81" />
+          <Calc UnitID="6" Ordinal="0" >
+            <FullName value="Temperature [ITS-90, deg C]" />
+          </Calc>
+          <DecimalDigits value="5" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="1" >
+          <CalcID value="81" />
+          <Calc UnitID="6" Ordinal="1" >
+            <FullName value="Temperature, 2 [ITS-90, deg C]" />
+          </Calc>
+          <DecimalDigits value="5" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="2" >
+          <CalcID value="82" />
+          <Calc UnitID="6" Ordinal="0" >
+            <FullName value="Temperature Difference, 2 - 1 [ITS-90, deg C]" />
+          </Calc>
+          <DecimalDigits value="5" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="3" >
+          <CalcID value="12" />
+          <Calc UnitID="41" Ordinal="0" >
+            <FullName value="Conductivity [mS/cm]" />
+          </Calc>
+          <DecimalDigits value="7" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="4" >
+          <CalcID value="12" />
+          <Calc UnitID="41" Ordinal="1" >
+            <FullName value="Conductivity, 2 [mS/cm]" />
+          </Calc>
+          <DecimalDigits value="7" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="5" >
+          <CalcID value="13" />
+          <Calc UnitID="41" Ordinal="0" >
+            <FullName value="Conductivity Difference, 2 - 1 [mS/cm]" />
+          </Calc>
+          <DecimalDigits value="7" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="6" >
+          <CalcID value="57" />
+          <Calc UnitID="63" Ordinal="0" >
+            <FullName value="Oxygen raw, SBE 43 [V]" />
+            <ApplyHysteresisCorrection value="1" />
+          </Calc>
+          <DecimalDigits value="5" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="7" >
+          <CalcID value="55" />
+          <Calc UnitID="40" Ordinal="0" >
+            <FullName value="Oxygen, SBE 43 [ml/l]" />
+            <WindowSize value="2.000000" />
+            <ApplyHysteresisCorrection value="1" />
+            <ApplyTauCorrection value="1" />
+          </Calc>
+          <DecimalDigits value="6" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="8" >
+          <CalcID value="36" />
+          <Calc UnitID="23" Ordinal="0" >
+            <FullName value="Frequency 0" />
+          </Calc>
+          <DecimalDigits value="4" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="9" >
+          <CalcID value="36" />
+          <Calc UnitID="23" Ordinal="1" >
+            <FullName value="Frequency 1" />
+          </Calc>
+          <DecimalDigits value="4" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="10" >
+          <CalcID value="36" />
+          <Calc UnitID="23" Ordinal="2" >
+            <FullName value="Frequency 2" />
+          </Calc>
+          <DecimalDigits value="4" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="11" >
+          <CalcID value="36" />
+          <Calc UnitID="23" Ordinal="3" >
+            <FullName value="Frequency 3" />
+          </Calc>
+          <DecimalDigits value="4" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <SelCalcRow index="12" >
+          <CalcID value="36" />
+          <Calc UnitID="23" Ordinal="4" >
+            <FullName value="Frequency 4" />
+          </Calc>
+          <DecimalDigits value="4" />
+          <Fore value="0" />
+          <Back value="16777215" />
+        </SelCalcRow>
+        <Position left="765" top="407" right="1221" bottom="800" />
+        <WindowPlacement >
+          <length value="44" />
+          <flags value="0" />
+          <showCmd value="1" />
+          <ptMinPosition x="-1" y="-1" />
+          <ptMaxPosition x="-1" y="-1" />
+          <rcNormalPosition left="765" top="407" right="1221" bottom="800" />
+        </WindowPlacement>
+        <SecBetweenUpdate value="1.000000" />
+        <PixelX value="9" />
+        <PixelY value="20" />
+        <MaxExtent value="132" />
+      </SelCalcData>
+      <TwoColumns value="0" />
+      <UseShortNames value="0" />
+      <FontSize value="0" />
+      <Sizing >
+        <RowHeight>27</RowHeight>
+        <TopHeaderHeight>13</TopHeaderHeight>
+        <SideHeaderWidth>13</SideHeaderWidth>
+        <HeaderColumn1Width>262</HeaderColumn1Width>
+        <DataColumn1Width>172</DataColumn1Width>
+      </Sizing>
+    </FixedViewData>
+  </Display>
+</DisplaySetup>

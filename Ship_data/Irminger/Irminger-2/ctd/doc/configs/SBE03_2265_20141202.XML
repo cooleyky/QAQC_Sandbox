@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TemperatureSensor SensorID="55" SB_ConfigCTD_FileVersion="7.23.0.2" >
+  <SerialNumber>2265</SerialNumber>
+  <CalibrationDate>02-Dec-14</CalibrationDate>
+  <UseG_J>1</UseG_J>
+  <A>0.00000000e+000</A>
+  <B>0.00000000e+000</B>
+  <C>0.00000000e+000</C>
+  <D>0.00000000e+000</D>
+  <F0_Old>0.000</F0_Old>
+  <G>4.33167491e-003</G>
+  <H>6.43525663e-004</H>
+  <I>2.33396894e-005</I>
+  <J>2.17446794e-006</J>
+  <F0>1000.000</F0>
+  <Slope>1.00000000</Slope>
+  <Offset>0.0000</Offset>
+</TemperatureSensor>

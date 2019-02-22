@@ -1,0 +1,28 @@
+
+datcnv     /cd:\data\%2%3.XMLCON /id:\data\%2%3.hex  /od:\data\%4   /pd:\data\doc\processing_setup\DatCnv_cts.psa
+  
+AlignCTD   /id:\data\%4\%2%3.cnv   /od:\data\%4   /pd:\data\doc\processing_setup\alignCTD_cts.psa
+
+CellTM     /id:\data\%4\%2%3.cnv   /od:\data\%4   /pd:\data\doc\processing_setup\CellTM_cts.psa
+
+Derive     /cd:\data\process\%2%3.XMLCON /id:\data\%4\%2%3.cnv /od:\data\%4   /pd:\data\doc\processing_setup\Derive_cts.psa    
+
+binavg     /id:\data\%4\%2%3.cnv   /od:\data\%4   /pd:\data\doc\processing_setup\BinAvg_cts.psa
+
+trans      /id:\data\%4\%2%3.cnv   /od:\data\%4   /pd:\data\doc\processing_setup\Trans_cts.psa
+
+split      /id:\data\%4\%2%3.cnv   /od:\data\%4   /pd:\data\doc\processing_setup\Split_cts.psa
+
+@ this gives up and down as one cast             
+asciiout   /id:\data\%4\%2%3.cnv   /od:\data\%4   /pd:\data\doc\processing_setup\ASCII_Out_cts.psa
+             
+@comment out if no split
+asciiout   /id:\data\%4\u%2%3.cnv  /od:\data\%4   /pd:\data\doc\processing_setup\ASCII_Out_cts.psa
+asciiout   /id:\data\%4\d%2%3.cnv  /od:\data\%4   /pd:\data\doc\processing_setup\ASCII_Out_cts.psa
+
+@Comment out if no rosette 
+Bottlesum   /cd:\data\%2%3.XMLCON  /id:\data\%4\%2%3.ros   /od:\data\%4   /pd:\data\doc\processing_setup\BottleSum_cts.psa
+
+@plot a picture.  Comment out if not needed.
+seaplot    /id:\data\%4\%2%3.cnv   /od:\data\%4    /pd:\data\doc\processing_setup\Seaplot_cts.psa
+seaplot    /id:\data\%4\d%2%3.cnv   /od:\data\%4    /pd:\data\doc\processing_setup\Seaplot_cts.psa

@@ -1,0 +1,19 @@
+* Sea-Bird SBE 9 Data File:
+* FileName = C:\Data\ctd\KN22104009.hdr
+* Software Version Seasave V 7.21k
+* Temperature SN = 4195
+* Conductivity SN = 2147
+* Number of Bytes Per Scan = 40
+* Number of Voltage Words = 5
+* Number of Scans Averaged by the Deck Unit = 1
+* System UpLoad Time = Sep 17 2014 13:48:52
+* NMEA Latitude = 59 46.27 N
+* NMEA Longitude = 039 38.47 W
+* NMEA UTC (Time) = Sep 17 2014 13:48:49
+* Store Lat/Lon Data = Append to Every Scan
+** KN221-04 Chief Scientist: Bob Weller 
+** OOI Irminger Sea Sept. 2014 
+** Station: 009
+** Knudsen Depth: 2758
+* System UTC = Sep 17 2014 13:48:52
+*END*

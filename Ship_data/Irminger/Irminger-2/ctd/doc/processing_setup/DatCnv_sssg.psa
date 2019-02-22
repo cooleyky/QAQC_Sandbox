@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Data_Conversion >
+  <Version value="7.21k" />
+  <ServerName value="Data Conversion" />
+  <InstrumentPath value="c:\data\ctd\at27a_002.XMLCON" />
+  <InstrumentMatch value="1" />
+  <InputDir value="c:\data\ctd" />
+  <InputFileArray size="1" GrowBy="-1" >
+    <ArrayItem index="0" value="at27a_002.hex" />
+  </InputFileArray>
+  <OutputDir value="c:\data\ctd\PROCESS" />
+  <NameAppend value="" />
+  <OutputFile value="" />
+  <LastProcessed value="0" />
+  <ProcessScansToEnd value="1" />
+  <ScansToSkip value="0" />
+  <ScansToProcess value="1" />
+  <MergeHeaderFile value="1" />
+  <OutputFormat value="1" high="1" low="0" initialValue="0" />
+  <FromCast value="0" high="1" low="0" initialValue="0" />
+  <CreateFile value="2" high="2" low="0" initialValue="0" />
+  <ScanRangeSource value="3" high="3" low="0" initialValue="3" />
+  <ScanRangeOffset value="0.000000" />
+  <ScanRangeDuration value="2.000000" />
+  <StartTimeOption value="1" />
+  <PromptForNoteAndOrStartTime value="0" />
+  <CalcArray Size="25" >
+    <CalcArrayItem index="0" CalcID="84" >
+      <Calc UnitID="52" Ordinal="0" >
+        <FullName value="Time, Elapsed [seconds]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="1" CalcID="40" >
+      <Calc UnitID="4" Ordinal="0" >
+        <FullName value="Longitude [deg]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="2" CalcID="39" >
+      <Calc UnitID="4" Ordinal="0" >
+        <FullName value="Latitude [deg]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="3" CalcID="17" >
+      <Calc UnitID="31" Ordinal="0" >
+        <FullName value="Depth [salt water, m]" />
+        <Latitude value="9.000000" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="4" CalcID="65" >
+      <Calc UnitID="3" Ordinal="0" >
+        <FullName value="Pressure, Digiquartz [db]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="5" CalcID="81" >
+      <Calc UnitID="6" Ordinal="0" >
+        <FullName value="Temperature [ITS-90, deg C]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="6" CalcID="81" >
+      <Calc UnitID="6" Ordinal="1" >
+        <FullName value="Temperature, 2 [ITS-90, deg C]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="7" CalcID="12" >
+      <Calc UnitID="58" Ordinal="0" >
+        <FullName value="Conductivity [S/m]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="8" CalcID="12" >
+      <Calc UnitID="58" Ordinal="1" >
+        <FullName value="Conductivity, 2 [S/m]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="9" CalcID="179" >
+      <Calc UnitID="46" Ordinal="0" >
+        <FullName value="Beam Transmission, WET Labs C-Star [%]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="10" CalcID="93" >
+      <Calc UnitID="38" Ordinal="0" >
+        <FullName value="Fluorescence, WET Labs ECO-AFL/FL [mg/m^3]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="11" CalcID="57" >
+      <Calc UnitID="63" Ordinal="0" >
+        <FullName value="Oxygen raw, SBE 43 [V]" />
+        <ApplyHysteresisCorrection value="1" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="12" CalcID="1" >
+      <Calc UnitID="29" Ordinal="0" >
+        <FullName value="Altimeter [m]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="13" CalcID="8" >
+      <Calc UnitID="-1" Ordinal="0" >
+        <FullName value="Bottles Fired" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="14" CalcID="15" >
+      <Calc UnitID="11" Ordinal="0" >
+        <FullName value="Density [density, Kg/m^3]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="15" CalcID="15" >
+      <Calc UnitID="11" Ordinal="1" >
+        <FullName value="Density, 2 [density, Kg/m^3]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="16" CalcID="70" >
+      <Calc UnitID="49" Ordinal="0" >
+        <FullName value="Salinity, Practical [PSU]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="17" CalcID="70" >
+      <Calc UnitID="49" Ordinal="1" >
+        <FullName value="Salinity, Practical, 2 [PSU]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="18" CalcID="74" >
+      <Calc UnitID="33" Ordinal="0" >
+        <FullName value="Sound Velocity [Chen-Millero, m/s]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="19" CalcID="74" >
+      <Calc UnitID="33" Ordinal="1" >
+        <FullName value="Sound Velocity, 2 [Chen-Millero, m/s]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="20" CalcID="84" >
+      <Calc UnitID="52" Ordinal="0" >
+        <FullName value="Time, Elapsed [seconds]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="21" CalcID="55" >
+      <Calc UnitID="40" Ordinal="0" >
+        <FullName value="Oxygen, SBE 43 [ml/l]" />
+        <WindowSize value="2.000000" />
+        <ApplyHysteresisCorrection value="1" />
+        <ApplyTauCorrection value="0" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="22" CalcID="55" >
+      <Calc UnitID="47" Ordinal="0" >
+        <FullName value="Oxygen, SBE 43 [% saturation]" />
+        <WindowSize value="2.000000" />
+        <ApplyHysteresisCorrection value="1" />
+        <ApplyTauCorrection value="0" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="23" CalcID="18" >
+      <Calc UnitID="32" Ordinal="0" >
+        <FullName value="Descent Rate [m/s]" />
+        <WindowSize value="2.000000" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="24" CalcID="82" >
+      <Calc UnitID="6" Ordinal="0" >
+        <FullName value="Temperature Difference, 2 - 1 [ITS-90, deg C]" />
+      </Calc>
+    </CalcArrayItem>
+  </CalcArray>
+  <MiscellaneousDataForCalculations >
+    <Latitude value="9.000000" />
+    <DescentRateAndAcceleration >
+      <WindowSize value="2.000000" />
+    </DescentRateAndAcceleration>
+    <Oxygen >
+      <WindowSize value="2.000000" />
+      <ApplyHysteresisCorrection value="1" />
+      <ApplyTauCorrection value="0" />
+    </Oxygen>
+    <AverageSoundVelocity >
+      <MinimumPressure value="20.000000" />
+      <MinimumSalinity value="20.000000" />
+      <PressureWindowSize value="10.000000" />
+      <TimeWindowSize value="30.000000" />
+    </AverageSoundVelocity>
+    <PlumeAnomaly >
+      <ThetaB value="0.000000" />
+      <SalinityB value="0.000000" />
+      <ThetaZSalinityZRatio value="0.000000" />
+      <ReferencePressure value="0.000000" />
+    </PlumeAnomaly>
+    <PotentialTempAnomaly >
+      <A0 value="0.000000" />
+      <A1 value="0.000000" />
+      <A1Multiplier value="0" />
+    </PotentialTempAnomaly>
+  </MiscellaneousDataForCalculations>
+</Data_Conversion>

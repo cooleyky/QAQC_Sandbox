@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ASCII_Out >
+  <Version value="7.20g" />
+  <ServerName value="ASCII Out" />
+  <InputDir value="c:\data\ctd\process" />
+  <InputFileArray size="1" GrowBy="-1" >
+    <ArrayItem index="0" value="dat18-06001_sv.cnv" />
+  </InputFileArray>
+  <OutputDir value="c:\data\ctd\process" />
+  <NameAppend value="" />
+  <OutputFile value="" />
+  <LastProcessed value="0" />
+  <HeaderFile value="1" />
+  <DataFile value="1" />
+  <ExcludedMarkedBad value="1" />
+  <LinesPerPage value="60" />
+  <LabelColumns value="0" high="2" low="0" initialValue="2" />
+  <ColumnSeparator value="0" high="3" low="0" initialValue="0" />
+  <JulianDaysConvFmt value="0" high="4" low="0" initialValue="0" />
+  <AddFirstColumn value="0" />
+  <ConvertTime value="1" />
+  <FirstColumnName value="" />
+  <FirstColumnValue value="" />
+  <ReplaceBadFlag value="0" />
+  <BadFlagValue value="999000000000000020000000000000.000000" />
+  <CalcArray Size="3" >
+    <CalcArrayItem index="0" CalcID="17" >
+      <Calc UnitID="31" Ordinal="0" >
+        <FullName value="Depth [salt water, m]" />
+        <Latitude value="0.000000" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="1" CalcID="74" >
+      <Calc UnitID="34" Ordinal="0" >
+        <FullName value="Sound Velocity [Delgrosso, m/s]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="2" CalcID="20" >
+      <Calc UnitID="-1" Ordinal="0" >
+        <FullName value="Flag" />
+      </Calc>
+    </CalcArrayItem>
+  </CalcArray>
+  <SelectArray >
+    <ArrayItem index="0" value="1" />
+    <ArrayItem index="1" value="1" />
+    <ArrayItem index="2" value="0" />
+  </SelectArray>
+</ASCII_Out>

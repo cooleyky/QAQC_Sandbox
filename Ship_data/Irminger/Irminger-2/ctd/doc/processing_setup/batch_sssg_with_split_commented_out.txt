@@ -1,0 +1,25 @@
+
+datcnv     /cc:\data\ctd\%2%3.XMLCON /ic:\data\ctd\%2%3.hex  /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\DatCnv_sssg.psa
+  
+AlignCTD   /ic:\data\ctd\%4\%2%3.cnv   /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\alignCTD_sssg.psa
+
+CellTM     /ic:\data\ctd\%4\%2%3.cnv   /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\CellTM_sssg.psa
+
+Derive     /cc:\data\ctd\%2%3.xmlcon /ic:\data\ctd\%4\%2%3.cnv /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\Derive_sssg.psa
+
+binavg     /ic:\data\ctd\%4\%2%3.cnv   /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\BinAvg_sssg.psa
+
+trans      /ic:\data\ctd\%4\%2%3.cnv   /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\Trans_sssg.psa
+
+@split      /ic:\data\ctd\%4\%2%3.cnv   /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\Split_sssg.psa
+
+@ this gives up and down as one cast             
+asciiout   /ic:\data\ctd\%4\%2%3.cnv   /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\ASCII_Out_sssg.psa
+             
+@comment out if no split
+@asciiout   /ic:\data\ctd\%4\u%2%3.cnv  /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\ASCII_Out_sssg.psa
+@asciiout   /ic:\data\ctd\%4\d%2%3.cnv  /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\ASCII_Out_sssg.psa
+
+@Comment out if no rosette 
+@Bottlesum   /cc:\data\ctd\%2%3.xmlcon  /ic:\data\ctd\%4\%2%3.ros   /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\BottleSum_sssg.psa
+

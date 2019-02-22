@@ -1,0 +1,12 @@
+
+datcnv     /cc:\data\ctd\%2%3.XMLCON /ic:\data\ctd\%2%3.hex  /oc:\data\ctd\%4 /f%2%3_tm.cnv   /pc:\data\ctd\doc\processing_setup\DatCnv_adcp.psa
+  
+AlignCTD   /ic:\data\ctd\%4\%2%3_tm.cnv   /oc:\data\ctd\%4 /f%2%3_tm.cnv    /pc:\data\ctd\doc\processing_setup\alignCTD_adcp.psa
+
+CellTM     /ic:\data\ctd\%4\%2%3_tm.cnv   /oc:\data\ctd\%4 /f%2%3_tm.cnv   /pc:\data\ctd\doc\processing_setup\CellTM_adcp.psa
+
+rem Derive     /cc:\data\ctd\%2%3.xmlcon /ic:\data\ctd\%4 /f%2%3_tm.cnv /oc:\data\ctd\%4 /f%2%3_tm.cnv /pc:\data\ctd\doc\processing_setup\Derive_adcp.psa
+
+rem binavg     /ic:\data\ctd\%4\%2%3_tm.cnv   /oc:\data\ctd\%4 /f%2%3_tm.cnv  /pc:\data\ctd\doc\processing_setup\BinAvg_adcp.psa
+
+rem trans      /ic:\data\ctd\%4\%2%3_tm.cnv   /oc:\data\ctd\%4 /f%2%3_tm.cnv  /pc:\data\ctd\doc\processing_setup\Trans_adcp.psa

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<AltimeterSensor SensorID="0" SB_ConfigCTD_FileVersion="7.22.0.4" >
+  <SerialNumber>PSA916-1162</SerialNumber>
+  <CalibrationDate></CalibrationDate>
+  <ScaleFactor>15.000</ScaleFactor>
+  <Offset>0.200</Offset>
+</AltimeterSensor>

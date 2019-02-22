@@ -1,0 +1,19 @@
+* Sea-Bird SBE 9 Data File:
+* FileName = D:\Data\ar0701010.hdr
+* Software Version Seasave V 7.23.2
+* Temperature SN = 4406
+* Conductivity SN = 3042
+* Number of Bytes Per Scan = 44
+* Number of Voltage Words = 5
+* Number of Scans Averaged by the Deck Unit = 1
+* System UpLoad Time = Jul 16 2016 20:10:01
+* NMEA Latitude = 59 55.71 N
+* NMEA Longitude = 039 37.28 W
+* NMEA UTC (Time) = Jul 16 2016  20:07:47
+* Store Lat/Lon Data = Append to Every Scan
+** Site Irminger Surface Mooring (old 2015)
+** G. Tupper Tupper
+** Station # 010
+** before old mooring recovery
+* System UTC = Jul 16 2016 20:10:01
+*END*

@@ -1,0 +1,30 @@
+* Sea-Bird SBE 9 Data File:
+* FileName = C:\data\ctd\at2604004.hdr
+* Software Version Seasave V 7.21f
+* Temperature SN = 2265
+* Conductivity SN = 2645
+* Number of Bytes Per Scan = 44
+* Number of Voltage Words = 5
+* Number of Scans Averaged by the Deck Unit = 1
+* System UpLoad Time = Aug 03 2013 11:19:45
+* NMEA Latitude = 46 44.86 N
+* NMEA Longitude = 125 25.06 W
+* NMEA UTC (Time) = Aug 03 2013  11:18:20
+* Store Lat/Lon Data = Append to Every Scan
+* System UTC = Aug 03 2013 11:19:45
+# nquan = 6
+                                        
+# units = specified
+# name 0 = prDM: Pressure, Digiquartz [db]
+# name 1 = t068C: Temperature [ITS-68, deg C]
+# name 2 = c0S/m: Conductivity [S/m]
+# name 3 = depSM: Depth [salt water, m], lat = 46.7477
+# name 4 = svCM: Sound Velocity [Chen-Millero, m/s]
+# name 5 = flag: flag
+                                        
+                                        
+                                        
+                                        
+                                        
+                                        
+# interval = meters: 1                  

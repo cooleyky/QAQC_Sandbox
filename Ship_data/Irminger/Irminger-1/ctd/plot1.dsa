@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DisplaySetup >
+  <Display Type="4" >
+    <XYPlotData >
+      <PlotType value="0" />
+      <NumberOfAxes value="5" />
+      <Title value="Primary Sensors" />
+      <TitleColor value="8388863" />
+      <FontSize value="0" />
+      <Font value="Arial" />
+      <GridLinePlacement value="0" />
+      <GridStyle value="0" />
+      <GridColor value="8421504" />
+      <GridInFront value="0" />
+      <InsideBackgroundColor value="16777215" />
+      <OutsideBackgroundColor value="16777215" />
+      <ShowFireSequence value="1" />
+      <ShowBottleFireLines value="1" />
+      <BottleFireLineLabelType value="0" />
+      <BottleFireLineType value="0" />
+      <BottleFireLineColor value="0" />
+      <DisplayDowncastOnly value="0" />
+      <AutoPageSingleAxis value="0" />
+      <ShowMarkLines value="0" />
+      <MarkLineStyle value="0" />
+      <MarkLineLabelType value="0" />
+      <MarkLineColor value="0" />
+      <QueueSizeLimit value="10" />
+      <RedrawBufferSize value="64000" />
+      <MonochromePlot value="0" />
+      <ShowPlotShadow value="0" />
+      <BlackTextAxes value="0" />
+      <EnableUpcastLineColors value="1" />
+      <PlotOffScaleData value="0" />
+      <MinimumPressureToEnableUpcastColors value="100.000000" />
+      <PressureDecreaseToEnableUpcastColors value="10.000000" />
+      <NumberOfSecondsBetweenPlotUpdates value="1.000000" />
+      <ResolutionForRedraw value="0.000833" />
+      <ShowToolBar value="1" />
+      <AutoPagePercent value="100" />
+      <WindowPlacement >
+        <length value="44" />
+        <flags value="0" />
+        <showCmd value="1" />
+        <ptMinPosition x="-1" y="-1" />
+        <ptMaxPosition x="-1" y="-1" />
+        <rcNormalPosition left="61" top="48" right="747" bottom="797" />
+      </WindowPlacement>
+      <Axes >
+        <Axis index="0" >
+          <CalcID value="65" />
+          <Calc UnitID="3" Ordinal="0" >
+            <FullName value="Pressure, Digiquartz [db]" />
+          </Calc>
+          <LabelAxisWithVariable value="1" />
+          <CustomLabel value="" />
+          <LineType value="0" />
+          <AxisColor value="0" />
+          <ScaleType value="0" />
+          <MinimumValue value="0.000000" />
+          <MaximumValue value="2700.000000" />
+          <MajorDivisions value="9" />
+          <MinorDivisions value="4" />
+          <ReverseScaleDirection value="1" />
+          <DecimalDigits value="1" />
+          <AutoPageThisAxis value="0" />
+          <UpcastLineColor value="0" />
+          <DowncastLineColor value="0" />
+        </Axis>
+        <Axis index="1" >
+          <CalcID value="81" />
+          <Calc UnitID="6" Ordinal="0" >
+            <FullName value="Temperature [ITS-90, deg C]" />
+          </Calc>
+          <LabelAxisWithVariable value="1" />
+          <CustomLabel value="" />
+          <LineType value="0" />
+          <AxisColor value="196" />
+          <ScaleType value="0" />
+          <MinimumValue value="0.000000" />
+          <MaximumValue value="10.000000" />
+          <MajorDivisions value="4" />
+          <MinorDivisions value="5" />
+          <ReverseScaleDirection value="0" />
+          <DecimalDigits value="3" />
+          <AutoPageThisAxis value="0" />
+          <UpcastLineColor value="8421631" />
+          <DowncastLineColor value="196" />
+        </Axis>
+        <Axis index="2" >
+          <CalcID value="70" />
+          <Calc UnitID="49" Ordinal="0" >
+            <FullName value="Salinity, Practical [PSU]" />
+          </Calc>
+          <LabelAxisWithVariable value="1" />
+          <CustomLabel value="" />
+          <LineType value="0" />
+          <AxisColor value="10485760" />
+          <ScaleType value="0" />
+          <MinimumValue value="34.000000" />
+          <MaximumValue value="35.500000" />
+          <MajorDivisions value="4" />
+          <MinorDivisions value="5" />
+          <ReverseScaleDirection value="0" />
+          <DecimalDigits value="3" />
+          <AutoPageThisAxis value="0" />
+          <UpcastLineColor value="12615680" />
+          <DowncastLineColor value="10485760" />
+        </Axis>
+        <Axis index="3" >
+          <CalcID value="55" />
+          <Calc UnitID="40" Ordinal="0" >
+            <FullName value="Oxygen, SBE 43 [ml/l]" />
+            <WindowSize value="2.000000" />
+            <ApplyHysteresisCorrection value="1" />
+            <ApplyTauCorrection value="1" />
+          </Calc>
+          <LabelAxisWithVariable value="1" />
+          <CustomLabel value="" />
+          <LineType value="0" />
+          <AxisColor value="8388736" />
+          <ScaleType value="0" />
+          <MinimumValue value="5.000000" />
+          <MaximumValue value="11.000000" />
+          <MajorDivisions value="6" />
+          <MinorDivisions value="5" />
+          <ReverseScaleDirection value="0" />
+          <DecimalDigits value="2" />
+          <AutoPageThisAxis value="0" />
+          <UpcastLineColor value="8388863" />
+          <DowncastLineColor value="8388736" />
+        </Axis>
+        <Axis index="4" >
+          <CalcID value="55" />
+          <Calc UnitID="40" Ordinal="1" >
+            <FullName value="Oxygen, SBE 43, 2 [ml/l]" />
+            <WindowSize value="2.000000" />
+            <ApplyHysteresisCorrection value="1" />
+            <ApplyTauCorrection value="1" />
+          </Calc>
+          <LabelAxisWithVariable value="1" />
+          <CustomLabel value="" />
+          <LineType value="0" />
+          <AxisColor value="20208" />
+          <ScaleType value="0" />
+          <MinimumValue value="5.000000" />
+          <MaximumValue value="11.000000" />
+          <MajorDivisions value="6" />
+          <MinorDivisions value="5" />
+          <ReverseScaleDirection value="0" />
+          <DecimalDigits value="2" />
+          <AutoPageThisAxis value="0" />
+          <UpcastLineColor value="16512" />
+          <DowncastLineColor value="20208" />
+        </Axis>
+      </Axes>
+      <WindowRectangle left="61" top="48" right="747" bottom="797" />
+      <GraphicsOutputOptions >
+        <PrintSizeFrom value="0" />
+        <PrintOptionsView >
+          <Orientation value="0" />
+          <PrintFullPage value="1" />
+          <PrintBlackAndWhite value="0" />
+          <OutputUnits value="0" />
+          <OutputWidth value="160.000000" />
+          <OutputHeight value="120.000000" />
+        </PrintOptionsView>
+        <FileOptionsView >
+          <DataFormat value="0" />
+          <MetafileSizeFrom value="0" />
+          <JpegSizeFrom value="0" />
+          <BitmapSizeFrom value="0" />
+          <MetafileView >
+            <OutputUnits value="0" />
+            <OutputWidth value="160.000000" />
+            <OutputHeight value="120.000000" />
+          </MetafileView>
+          <JpegView >
+            <OutputWidth value="640" />
+            <OutputHeight value="512" />
+          </JpegView>
+          <BitmapView >
+            <OutputWidth value="640" />
+            <OutputHeight value="512" />
+          </BitmapView>
+        </FileOptionsView>
+        <ClipOptionsView >
+          <DataFormat value="0" />
+          <MetafileSizeFrom value="0" />
+          <JpegSizeFrom value="0" />
+          <BitmapSizeFrom value="0" />
+          <MetafileView >
+            <OutputUnits value="0" />
+            <OutputWidth value="160.000000" />
+            <OutputHeight value="120.000000" />
+          </MetafileView>
+          <JpegView >
+            <OutputWidth value="640" />
+            <OutputHeight value="512" />
+          </JpegView>
+          <BitmapView >
+            <OutputWidth value="640" />
+            <OutputHeight value="512" />
+          </BitmapView>
+        </ClipOptionsView>
+        <CopyToClipboardDefault value="0" />
+        <SaveToFileDefault value="1" />
+        <DisplaySelectClipboardFormatDialog value="0" />
+      </GraphicsOutputOptions>
+      <TS_PlotSetup >
+        <ContourVariable value="0" />
+        <Start value="0.000000" />
+        <Interval value="1.000000" />
+        <SigDigits value="2" />
+        <PointsPerLine value="40" />
+        <LabelPositionPct value="5.000000" />
+        <LabelSize value="8" />
+        <LineType value="0" />
+        <Color value="8388608" />
+      </TS_PlotSetup>
+    </XYPlotData>
+  </Display>
+</DisplaySetup>

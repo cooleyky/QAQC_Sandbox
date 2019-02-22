@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Derive >
+  <Version value="7.21k" />
+  <ServerName value="Derive" />
+  <InstrumentPath value="C:\data\ctd\AT25003.XMLCON" />
+  <InstrumentMatch value="0" />
+  <InputDir value="C:\data\ctd\process" />
+  <InputFileArray size="1" GrowBy="-1" >
+    <ArrayItem index="0" value="at25003_tm.cnv" />
+  </InputFileArray>
+  <OutputDir value="C:\data\ctd\process" />
+  <NameAppend value="" />
+  <OutputFile value="at25003_tm.cnv" />
+  <LastProcessed value="0" />
+  <CalcArray Size="11" >
+    <CalcArrayItem index="0" CalcID="15" >
+      <Calc UnitID="11" Ordinal="0" >
+        <FullName value="Density [density, Kg/m^3]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="1" CalcID="15" >
+      <Calc UnitID="11" Ordinal="1" >
+        <FullName value="Density, 2 [density, Kg/m^3]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="2" CalcID="70" >
+      <Calc UnitID="49" Ordinal="0" >
+        <FullName value="Salinity, Practical [PSU]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="3" CalcID="70" >
+      <Calc UnitID="49" Ordinal="1" >
+        <FullName value="Salinity, Practical, 2 [PSU]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="4" CalcID="17" >
+      <Calc UnitID="31" Ordinal="0" >
+        <FullName value="Depth [salt water, m]" />
+        <Latitude value="39.000000" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="5" CalcID="18" >
+      <Calc UnitID="32" Ordinal="0" >
+        <FullName value="Descent Rate [m/s]" />
+        <WindowSize value="2.000000" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="6" CalcID="74" >
+      <Calc UnitID="33" Ordinal="0" >
+        <FullName value="Sound Velocity [Chen-Millero, m/s]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="7" CalcID="70" >
+      <Calc UnitID="49" Ordinal="0" >
+        <FullName value="Salinity, Practical [PSU]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="8" CalcID="70" >
+      <Calc UnitID="49" Ordinal="1" >
+        <FullName value="Salinity, Practical, 2 [PSU]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="9" CalcID="74" >
+      <Calc UnitID="33" Ordinal="1" >
+        <FullName value="Sound Velocity, 2 [Chen-Millero, m/s]" />
+      </Calc>
+    </CalcArrayItem>
+    <CalcArrayItem index="10" CalcID="0" >
+      <Calc UnitID="36" Ordinal="0" >
+        <FullName value="Acceleration [m/s^2]" />
+        <WindowSize value="2.000000" />
+      </Calc>
+    </CalcArrayItem>
+  </CalcArray>
+  <MiscellaneousDataForCalculations >
+    <Latitude value="39.000000" />
+    <DescentRateAndAcceleration >
+      <WindowSize value="2.000000" />
+    </DescentRateAndAcceleration>
+    <Oxygen >
+      <WindowSize value="2.000000" />
+      <ApplyHysteresisCorrection value="1" />
+      <ApplyTauCorrection value="0" />
+    </Oxygen>
+    <AverageSoundVelocity >
+      <MinimumPressure value="20.000000" />
+      <MinimumSalinity value="20.000000" />
+      <PressureWindowSize value="20.000000" />
+      <TimeWindowSize value="60.000000" />
+    </AverageSoundVelocity>
+    <PlumeAnomaly >
+      <ThetaB value="0.000000" />
+      <SalinityB value="0.000000" />
+      <ThetaZSalinityZRatio value="0.000000" />
+      <ReferencePressure value="0.000000" />
+    </PlumeAnomaly>
+    <PotentialTempAnomaly >
+      <A0 value="0.000000" />
+      <A1 value="0.000000" />
+      <A1Multiplier value="0" />
+    </PotentialTempAnomaly>
+  </MiscellaneousDataForCalculations>
+</Derive>

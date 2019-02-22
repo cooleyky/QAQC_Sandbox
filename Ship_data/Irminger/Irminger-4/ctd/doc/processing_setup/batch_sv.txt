@@ -1,0 +1,9 @@
+datcnv     /cd:\data\%2%3.XMLCON /id:\data\%2%3.hex  /od:\data\%4 /f%2%3_sv.cnv /pd:\data\doc\processing_setup\DatCnv_sv.psa
+  
+binavg     /id:\data\%4\%2%3_sv.cnv   /od:\data\%4 /f%2%3_sv.cnv /pd:\data\doc\processing_setup\BinAvg_sv.psa
+
+trans      /id:\data\%4\%2%3_sv.cnv   /od:\data\%4 /f%2%3_sv.cnv /pd:\data\doc\processing_setup\Trans_sv.psa
+
+asciiout   /id:\data\%4\%2%3_sv.cnv  /od:\data\%4   /pd:\data\doc\processing_setup\ASCII_Out_sv.psa
+
+

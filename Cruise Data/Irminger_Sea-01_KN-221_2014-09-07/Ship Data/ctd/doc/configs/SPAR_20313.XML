@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SPAR_Sensor SensorID="51" SB_ConfigCTD_FileVersion="7.21.0.12" >
+  <SerialNumber>20313</SerialNumber>
+  <CalibrationDate>2/20/2013</CalibrationDate>
+  <ConversionFactor>1563.22000000</ConversionFactor>
+  <RatioMultiplier>1.00000000</RatioMultiplier>
+</SPAR_Sensor>

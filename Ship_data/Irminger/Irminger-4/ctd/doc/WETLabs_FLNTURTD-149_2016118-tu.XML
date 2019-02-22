@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TurbidityMeter SensorID="67" SB_ConfigCTD_FileVersion="7.22.0.0" >
+  <SerialNumber>FLNTURTD-149-TU</SerialNumber>
+  <CalibrationDate>20161128</CalibrationDate>
+  <ScaleFactor>4.000000</ScaleFactor>
+  <!-- Dark output -->
+  <DarkVoltage>0.079000</DarkVoltage>
+</TurbidityMeter>
