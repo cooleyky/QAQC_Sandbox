@@ -5,3 +5,13 @@ Ship_data/RCA_Bottle_DatCnv.psa
 
 # I want to ignore the Data files which are already version controlled in Alfresco or Vault
 Data/
+# I want to avoid the files which I've downloaded
+*.cnv
+*.hex
+*.XMLCON
+*.cal
+*.log
+*.hdr
+*.bl
+*.psa
+*.dsa
