@@ -1,9 +1,0 @@
-datcnv     /cc:\data\ctd\%2%3.XMLCON /ic:\data\ctd\%2%3.hex  /oc:\data\ctd\%4 /f%2%3_sv.cnv /pc:\data\ctd\doc\processing_setup\DatCnv_sv.psa
-  
-binavg     /ic:\data\ctd\%4\%2%3_sv.cnv   /oc:\data\ctd\%4 /f%2%3_sv.cnv /pc:\data\ctd\doc\processing_setup\BinAvg_sv.psa
-
-trans      /ic:\data\ctd\%4\%2%3_sv.cnv   /oc:\data\ctd\%4 /f%2%3_sv.cnv /pc:\data\ctd\doc\processing_setup\Trans_sv.psa
-
-asciiout   /ic:\data\ctd\%4\%2%3_sv.cnv  /oc:\data\ctd\%4   /pc:\data\ctd\doc\processing_setup\ASCII_Out_sv.psa
-
-

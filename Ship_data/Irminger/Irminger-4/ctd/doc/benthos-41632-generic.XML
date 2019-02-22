@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<AltimeterSensor SensorID="0" SB_ConfigCTD_FileVersion="7.23.0.2" >
-  <SerialNumber>41632</SerialNumber>
-  <CalibrationDate>2017-02-27</CalibrationDate>
-  <ScaleFactor>15.000</ScaleFactor>
-  <Offset>0.000</Offset>
-</AltimeterSensor>

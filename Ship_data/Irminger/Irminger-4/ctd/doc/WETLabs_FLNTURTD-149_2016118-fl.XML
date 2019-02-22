@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<FluoroWetlabECO_AFL_FL_Sensor SensorID="20" SB_ConfigCTD_FileVersion="7.22.0.0" >
-  <SerialNumber>0149</SerialNumber>
-  <CalibrationDate>2016-11-28</CalibrationDate>
-  <ScaleFactor>1.60000000e+001</ScaleFactor>
-  <!-- Dark output -->
-  <Vblank>0.0820</Vblank>
-</FluoroWetlabECO_AFL_FL_Sensor>

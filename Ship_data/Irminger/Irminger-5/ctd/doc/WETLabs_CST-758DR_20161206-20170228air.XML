@@ -1,8 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<WET_LabsCStar SensorID="71" SB_ConfigCTD_FileVersion="7.22.0.0" >
-  <SerialNumber>758</SerialNumber>
-  <CalibrationDate>2016-12-06 inair 20170228</CalibrationDate>
-  <M>21.9140</M>
-  <B>-1.2270</B>
-  <PathLength>0.250</PathLength>
-</WET_LabsCStar>
