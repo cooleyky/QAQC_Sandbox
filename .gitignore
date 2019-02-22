@@ -2,12 +2,12 @@
 Ship_data/CTD SOP draft.docx
 Ship_data/RCA_BottleSum.psa
 Ship_data/RCA_Bottle_DatCnv.psa
-*/ctd/
-*/Water Sampling/
-
 
 # I want to ignore the Data files which are already version controlled in Alfresco or Vault
 Data/
+Water Sampling/
+ctd/
+
 # I want to avoid the files which I've downloaded
 *.asc
 *.bat
