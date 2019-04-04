@@ -7,7 +7,12 @@ from wcmatch import fnmatch
 import xml.etree.ElementTree as et
 import pandas as pd
 import numpy as np
+import string
 from zipfile import ZipFile
+import csv
+import PyPDF2
+from nltk.tokenize import word_tokenize
+import json
 
 
 class CTDCalibration():
@@ -16,9 +21,9 @@ class CTDCalibration():
     def __init__(self, uid):
         self.serial = ''
         self.uid = uid
+        self.ctd_type = uid
         self.coefficients = {}
         self.date = {}
-        self.type = ''
 
         self.coefficient_name_map = {
             'TA0': 'CC_a0',
@@ -60,6 +65,34 @@ class CTDCalibration():
             'T5': 'CC_T5',
         }
 
+        # Name mapping for the MO-type CTDs (when reading from pdfs)
+        self.mo_coefficient_name_map = {
+            'ptcb1': 'CC_ptcb1',
+            'pa2': 'CC_pa2',
+            'a3': 'CC_a3',
+            'pa0': 'CC_pa0',
+            'wbotc': 'CC_wbotc',
+            'ptcb0': 'CC_ptcb0',
+            'g': 'CC_g',
+            'ptempa1': 'CC_ptempa1',
+            'ptcb2': 'CC_ptcb2',
+            'a0': 'CC_a0',
+            'h': 'CC_h',
+            'ptca0': 'CC_ptca0',
+            'a2': 'CC_a2',
+            'cpcor': 'CC_cpcor',
+            'i': 'CC_i',
+            'ptempa0': 'CC_ptempa0',
+            'prange': 'CC_p_range',
+            'ctcor': 'CC_ctcor',
+            'a1': 'CC_a1',
+            'j': 'CC_j',
+            'ptempa2': 'CC_ptempa2',
+            'pa1': 'CC_pa1',
+            'ptca1': 'CC_ptca1',
+            'ptca2': 'CC_ptca2',
+        }
+
         self.o2_coefficients_map = {
             'A': 'CC_residual_temperature_correction_factor_a',
             'B': 'CC_residual_temperature_correction_factor_b',
@@ -82,6 +115,188 @@ class CTDCalibration():
         else:
             raise Exception(f"The instrument uid {d} is not a valid uid. Please check.")
 
+    @property
+    def ctd_type(self):
+        return self._ctd_type
+
+    @ctd_type.setter
+    def ctd_type(self, d):
+        if 'MO' in d:
+            self._ctd_type = '37'
+        elif 'BP' in d:
+            self._ctd_type = '16'
+        else:
+            self._ctd_type = ''
+
+    def load_pdf(self, filepath):
+        """
+        This function opens and loads a pdf into a parseable format.
+
+        Args:
+            filepath - full directory path with filename
+        Raises:
+            IOError - error reading or loading text from the pdf object
+        Returns:
+            text - a dictionary with page numbers as keys and the pdf text as items
+        """
+
+        # Open and read the pdf file
+        pdfFileObj = open(filepath, 'rb')
+        # Create a reader to be parsed
+        pdfReader = PyPDF2.PdfFileReader(pdfFileObj)
+        # Now, enumerate through the pdf and decode the text
+        num_pages = pdfReader.numPages
+        count = 0
+        text = {}
+
+        while count < num_pages:
+            pageObj = pdfReader.getPage(count)
+            count = count + 1
+            text.update({count: pageObj.extractText()})
+
+        # Run a check that text was actually extracted
+        if len(text) == 0:
+            raise(IOError(f'No text was parsed from the pdf file {filepath}'))
+        else:
+            return text
+
+    def read_pdf(self, filepath):
+        """
+        Function which parses the opened and loaded pdf file into the
+        relevant calibration coefficient data. This function works if
+        the calibration pdfs have been split based on sensor as well as
+        for combined pdfs.
+
+        Args:
+            text - the opened and loaded pdf text returned from load_pdf
+        Raises:
+            Exception - thrown when a relevant calibration information is
+                missing from the text
+        Returns:
+            date - the calibration dates of the temperature, conductivity,
+                and pressure sensors of the CTDMO in a dictionary object
+            serial - populated serial number of the CTDMO
+            coefficients - populated dictionary of the calibration coefficients
+                as keys and associated values as items.
+        """
+        text = self.load_pdf(filepath)
+
+        for page_num in text.keys():
+            # Search for the temperature calibration data
+            if 'SBE 37 TEMPERATURE CALIBRATION DATA' in text[page_num]:
+                tokens = word_tokenize(text[page_num])
+                data = [word.lower() for word in tokens if not word in string.punctuation]
+                # Now, find and record the calibration date
+                if 'calibration' and 'date' in data:
+                    cal_ind = data.index('calibration')
+                    date_ind = data.index('date')
+                    # Run check they are in order
+                    if date_ind == cal_ind+1:
+                        date = pd.to_datetime(data[date_ind+1]).strftime('%Y%m%d')
+                        self.date.update({'TCAL':date})
+                    else:
+                        raise Exception(f"Can't locate temp calibration date.")
+                else:
+                    raise Exception(f"Can't locate temp calibration date.")
+
+                # Check for the serial number
+                if 'serial' and 'number' in data and len(self.serial) == 0:
+                    ser_ind = data.index('serial')
+                    num_ind = data.index('number')
+                    if num_ind == ser_ind+1:
+                        self.serial = data[num_ind+1]
+                    else:
+                        pass
+
+                # Now, get the calibration coefficients
+                for key in self.mo_coefficient_name_map.keys():
+                    if key in data:
+                        ind = data.index(key)
+                        self.coefficients.update({self.mo_coefficient_name_map[key]: data[ind+1]})
+                    else:
+                        pass
+
+            # Search for the conductivity calibration data
+            elif 'SBE 37 CONDUCTIVITY CALIBRATION DATA' in text[page_num]:
+                # tokenize the text data and extract only key words
+                tokens = word_tokenize(text[page_num])
+                data = [word.lower() for word in tokens if not word in string.punctuation]
+
+                # Now, find and record the calibration date
+                if 'calibration' and 'date' in data:
+                    cal_ind = data.index('calibration')
+                    date_ind = data.index('date')
+                    # Run check they are in order
+                    if date_ind == cal_ind+1:
+                        date = pd.to_datetime(data[date_ind+1]).strftime('%Y%m%d')
+                        self.date.update({'CCAL': date})
+                    else:
+                        raise Exception(f"Can't locate conductivity calibration date.")
+                else:
+                    raise Exception(f"Can't locate conductivity calibration date.")
+
+                # Check for the serial number
+                if 'serial' and 'number' in data and len(self.serial) == 0:
+                    ser_ind = data.index('serial')
+                    num_ind = data.index('number')
+                    if num_ind == ser_ind+1:
+                        self.serial = data[num_ind+1]
+                    else:
+                        pass
+
+                # Now, get the calibration coefficients
+                for key in self.mo_coefficient_name_map.keys():
+                    if key in data:
+                        ind = data.index(key)
+                        self.coefficients.update({self.mo_coefficient_name_map[key]: data[ind+1]})
+                    else:
+                        pass
+
+            elif 'SBE 37 PRESSURE CALIBRATION DATA' in text[page_num]:
+                # tokenize the text data and extract only key words
+                tokens = word_tokenize(text[page_num])
+                data = [word.lower() for word in tokens if not word in string.punctuation]
+
+                # Now, find and record the calibration date
+                if 'calibration' and 'date' in data:
+                    cal_ind = data.index('calibration')
+                    date_ind = data.index('date')
+                    # Run check they are in order
+                    if date_ind == cal_ind+1:
+                        date = pd.to_datetime(data[date_ind+1]).strftime('%Y%m%d')
+                        self.date.update({'PCAL': date})
+                    else:
+                        raise Exception(f"Can't locate pressure calibration date.")
+                else:
+                    raise Exception(f"Can't locate pressure calibration date.")
+
+                # Check for the serial number
+                if 'serial' and 'number' in data and len(self.serial) == 0:
+                    ser_ind = data.index('serial')
+                    num_ind = data.index('number')
+                    if num_ind == ser_ind+1:
+                        self.serial = data[num_ind+1]
+                    else:
+                        pass
+
+                # Now, get the calibration coefficients
+                for key in self.mo_coefficient_name_map.keys():
+                    if key in data:
+                        ind = data.index(key)
+                        self.coefficients.update({self.mo_coefficient_name_map[key]: data[ind+1]})
+                    else:
+                        pass
+
+            # Now check for other important information
+            else:
+                tokens = word_tokenize(text[page_num])
+                data = [word.lower() for word in tokens if not word in string.punctuation]
+
+                # Now, find the sensor rating
+                if 'sensor' and 'rating' in data:
+                    ind = data.index('rating')
+                    self.coefficients.update({self.mo_coefficient_name_map['prange']: data[ind+1]})
+
     def read_cal(self, data):
         """
         Function which reads and parses the CTDBP calibration values stored
@@ -99,10 +314,17 @@ class CTDCalibration():
         """
 
         for line in data.splitlines():
-            key, value = line.replace(" ","").split('=')
+            key, value = line.replace(" ", "").split('=')
 
-            if key == 'INSTRUMENT_TYPE' and value == 'SEACATPLUS':
-                self.type = '16'
+            if key == 'INSTRUMENT_TYPE':
+                if value == 'SEACATPLUS':
+                    ctd_type = '16'
+                elif value == '37SBE':
+                    ctd_type = '37'
+                else:
+                    ctd_type = ''
+                if self.ctd_type != ctd_type:
+                    raise ValueError(f'CTD type in cal file {ctd_type} does not match the UID type {self.ctd_type}')
 
             elif key == 'SERIALNO':
                 if self.serial != value.zfill(5):
@@ -112,29 +334,34 @@ class CTDCalibration():
                 self.date.update({key: datetime.datetime.strptime(value, '%d-%b-%y').strftime('%Y%m%d')})
 
             else:
-                name = self.coefficient_name_map.get(key)
+                if self.ctd_type == '16':
+                    name = self.coefficient_name_map.get(key)
+                elif self.ctd_type == '37':
+                    name = self.mo_coefficient_name_map.get(key)
+                else:
+                    pass
+
                 if not name or name is None:
                     continue
                 else:
-                    self.coefficients.update({name:value})
-
+                    self.coefficients.update({name: value})
 
     def load_cal(self, filepath):
         """
         Loads all of the calibration coefficients from the vendor cal files for
         a given CTD instrument class.
-    
+
         Args:
             filepath - directory path to where the zipfiles are stored locally
         Raises:
-            FileExistsError - Checks the given filepath that a .cal file exists           
+            FileExistsError - Checks the given filepath that a .cal file exists
         Returns:
             self.coefficients - populated coefficients dictionary
             self.date - the calibration dates associated with the calibration values
             self.type - the type (i.e. 16+/37-IM) of the CTD
             self.serial - populates the 5-digit serial number of the instrument
         """
-        
+
         if filepath.endswith('.zip'):
             with ZipFile(filepath) as zfile:
                 filename = [name for name in zfile.namelist() if '.cal' in name]
@@ -148,16 +375,15 @@ class CTDCalibration():
             with open(filepath) as filename:
                 data = filename.read()
                 self.read_cal(data)
-            
-        else:
-            FileExistsError(f"No .cal file found in {filepath}.")      
 
-                    
+        else:
+            FileExistsError(f"No .cal file found in {filepath}.")
+
     def read_xml(self, data):
         """
         Function which reads and parses the CTDBP calibration values stored
         in the xmlcon file.
-        
+
         Args:
             data - the data string to parse
         Returns:
@@ -166,7 +392,7 @@ class CTDCalibration():
             self.type - the type (i.e. 16+/37-IM) of the CTD
             self.serial - populates the 5-digit serial number of the instrument
         """
-        
+
         Tflag  = False
         Cflag  = False
         O2flag = False
@@ -174,11 +400,13 @@ class CTDCalibration():
         for child in data.iter():
             key = child.tag.upper()
             value = child.text.upper()
-            
+
             if key == 'NAME':
                 if '16PLUS' in value:
-                    self.type = '16'
-    
+                    ctd_type = '16'
+                    if self.ctd_type != ctd_type:
+                        raise ValueError(f'CTD type in xmlcon file {ctd_type} does not match the UID type {self.ctd_type}')
+
             # Check if we are processing the calibration values for the temperature sensor
             # If we already have parsed the Temp data, need to turn the flag off
             if key == 'TEMPERATURESENSOR':
@@ -187,7 +415,7 @@ class CTDCalibration():
                 Tflag = False
             else:
                 pass
-    
+
             # Check on if we are now parsing the conductivity data
             if key == 'CONDUCTIVITYSENSOR':
                 Cflag = True
@@ -195,7 +423,7 @@ class CTDCalibration():
                 Cflag = False
             else:
                 pass
-    
+
             # Check if an oxygen sensor has been appended to the CTD configuration
             if key == 'OXYGENSENSOR':
                 O2flag = True
@@ -205,50 +433,49 @@ class CTDCalibration():
             if key == 'SERIALNUMBER':
                 if self.serial != value.zfill(5):
                     raise Exception(f'Serial number {value.zfill(5)} stored in xmlcon file does not match {self.serial} from the UID.')
-        
+
             # Parse the calibration dates of the different sensors
             if key == 'CALIBRATIONDATE':
-                if Tflag == True:
+                if Tflag:
                     self.date.update({'TCALDATE':datetime.datetime.strptime(value, '%d-%b-%y').strftime('%Y%m%d')})
-                elif Cflag == True:
-                    self.date.update({'CCALDATE':datetime.datetime.strptime(value, '%d-%b-%y').strftime('%Y%m%d')})
+                elif Cflag:
+                    self.date.update({'CCALDATE': datetime.datetime.strptime(value, '%d-%b-%y').strftime('%Y%m%d')})
                 else:
-                    self.date.update({'PCALDATE':datetime.datetime.strptime(value, '%d-%b-%y').strftime('%Y%m%d')})
-            
+                    self.date.update({'PCALDATE': datetime.datetime.strptime(value, '%d-%b-%y').strftime('%Y%m%d')})
+
             # Now, we get to parse the actual calibration values, but it is necessary to make sure the
             # key names are correct
-            if Tflag is True:
+            if Tflag:
                 key = 'T'+key
-            
+
             name = self.coefficient_name_map.get(key)
             if not name or name is None:
-                if O2flag == True:
+                if O2flag:
                     name = self.o2_coefficients_map.get(key)
-                    self.coefficients.update({name:value})
+                    self.coefficients.update({name: value})
                 else:
                     pass
             else:
-                self.coefficients.update({name:value})
-                
-                
+                self.coefficients.update({name: value})
+
     def load_xml(self, filepath):
         """
         Loads all of the calibration coefficients from the vendor xmlcon files for
         a given CTD instrument class.
-    
+
         Args:
             filepath - the name of the xmlcon file to load and parse. If the
                 xmlcon file is not located in the same directory as this script,
                 the full filepath also needs to be specified. May point to a zipfile.
         Raises:
-            FileExistsError - Checks the given filepath that an xmlcon file exists           
+            FileExistsError - Checks the given filepath that an xmlcon file exists
         Returns:
             self.coefficients - populated coefficients dictionary
             self.date - the calibration dates associated with the calibration values
             self.type - the type (i.e. 16+/37-IM) of the CTD
             self.serial - populates the 5-digit serial number of the instrument
         """
-        
+
         if filepath.endswith('.zip'):
             with ZipFile(filepath) as zfile:
                 filename = [name for name in zfile.namelist() if '.xmlcon' in name]
@@ -257,7 +484,7 @@ class CTDCalibration():
                     self.read_xml(data)
                 else:
                     FileExistsError(f"No .cal file found in {filepath}.")
-                    
+
         elif filepath.endswith('.xmlcon'):
             with open(filepath) as file:
                 data = et.parse(file)
@@ -265,15 +492,14 @@ class CTDCalibration():
 
         else:
             FileExistsError(f"No .cal file found in {filepath}.")
-            
-            
+
     def load_qct(self, filepath):
         """
         Function which parses the output from the QCT check-in and loads them into
         the CTD object.
-        
+
         Args:
-            filepath - the full directory path and filename 
+            filepath - the full directory path and filename
         Raises:
             ValueError - checks if the serial number parsed from the UID matches the
                 the serial number stored in the file.
@@ -281,79 +507,83 @@ class CTDCalibration():
             self.coefficients - populated coefficients dictionary
             self.date - the calibration dates associated with the calibration values
             self.type - the type (i.e. 16+/37-IM) of the CTD
-            self.serial - populates the 5-digit serial number of the instrument 
+            self.serial - populates the 5-digit serial number of the instrument
         """
-        
+
         with open(filepath) as filename:
             data = filename.read()
 
-        for line in data.splitlines():
-    
-            if '16plus' in line.lower():
-                self.type = '16'
-        
-            elif 'SERIAL NO.' in line:
-                items = line.split()
-                ind = items.index('NO.')
-                value = items[ind+1].strip().zfill(5)
-                if self.serial != value:
-                    raise ValueError(f'Serial number {value.zfill(5)} from the QCT file does not match {self.serial} from the UID.')
+        if self.ctd_type == '37':
+            data = data.replace('<', ' ').replace('>', ' ')
+            for line in data.splitlines():
+                keys = list(self.mo_coefficient_name_map.keys())
+                if any([word for word in line.split() if word.lower() in keys]):
+                    name = self.mo_coefficient_name_map.get(line.split()[0])
+                    value = line.split()[-1]
+                    self.coefficients.update({name: value})
+
+        elif self.ctd_type == '16':
+            for line in data.splitlines():
+                keys = list(self.coefficient_name_map.keys())
+                if any([word for word in line.split() if word in keys]):
+                    name = self.coefficient_name_map.get(line.split()[0])
+                    value = line.split()[-1]
+                    self.coefficients.update({name: value})
+
+                if 'temperature:' in line:
+                    self.date.update({'TCAL': pd.to_datetime(line.split()[-1]).strftime('%Y%m%d')})
+                elif 'conductivity:' in line:
+                    self.date.update({'CCAL': pd.to_datetime(line.split()[-1]).strftime('%Y%m%d')})
+                elif 'pressure S/N' in line:
+                    self.date.update({'PCAL': pd.to_datetime(line.split()[-1]).strftime('%Y%m%d')})
                 else:
                     pass
-        
-            else:
-                items = re.split(': | =', line)
-                key = items[0].strip()
-                value = items[-1].strip()
-        
-                if key == 'temperature':
-                    self.date.update({'TCALDATE':datetime.datetime.strptime(value, '%d-%b-%y').strftime('%Y%m%d')})    
-        
-                elif key == 'conductivity':
-                    self.date.update({'CCALDATE':datetime.datetime.strptime(value, '%d-%b-%y').strftime('%Y%m%d')})
-                
-                elif key == 'pressure S/N':
-                    self.date.update({'PCALDATE':datetime.datetime.strptime(value, '%d-%b-%y').strftime('%Y%m%d')})
-            
-                else:
-                    name = self.coefficient_name_map.get(key)
-                    if not name or name is None:
-                        pass
-                    else:
-                        self.coefficients.update({name:value})
-                
-    
+
+                if 'SERIAL NO.' in line:
+                    ind = line.split().index('NO.')
+                    serial_num = line.split()[ind+1]
+                    if self.serial != serial_num:
+                        raise ValueError(f'UID serial number {self.serial} does not match the QCT serial num {serial_num}')
+
+                if 'SBE 16Plus' in line:
+                    if self.ctd_type is not '16':
+                        raise TypeError(f'CTD type {self.ctd_type} does not match the qct.')
+
+        else:
+            pass
+
     def write_csv(self, outpath):
         """
         This function writes the correctly named csv file for the ctd to the
         specified directory.
-        
+
         Args:
             outpath - directory path of where to write the csv file
         Raises:
-            ValueError - raised if the CTD object's coefficient dictionary 
+            ValueError - raised if the CTD object's coefficient dictionary
                 has not been populated
         Returns:
-            self.to_csv - a csv of the calibration coefficients which is 
+            self.to_csv - a csv of the calibration coefficients which is
                 written to the specified directory from the outpath.
         """
-        
+
         # Run a check that the coefficients have actually been loaded
         if len(self.coefficients) == 0:
             raise ValueError('No calibration coefficients have been loaded.')
-            
+
         # Create a dataframe to write to the csv
-        data = {'serial':[self.type + '-' + self.serial]*len(self.coefficients),
-               'name':list(self.coefficients.keys()),
-               'value':list(self.coefficients.values()),
-               'notes':['']*len(self.coefficients) }
+        data = {'serial': [self.ctd_type + '-' + self.serial]*len(self.coefficients),
+                'name': list(self.coefficients.keys()),
+                'value': list(self.coefficients.values()),
+                'notes': ['']*len(self.coefficients)
+                }
         df = pd.DataFrame().from_dict(data)
-        
+
         # Generate the csv name
         cal_date = max(self.date.values())
         csv_name = self.uid + '__' + cal_date + '.csv'
-        
-        # Now write to 
+
+        # Now write to
         check = input(f"Write {csv_name} to {outpath}? [y/n]: ")
         if check.lower().strip() == 'y':
             df.to_csv(outpath+'/'+csv_name, index=False)
@@ -366,15 +596,13 @@ class DOSTACalibration():
         self.serial = ''
         self.uid = uid
         self.date = pd.to_datetime(calibration_date).strftime('%Y%m%d')
-        self.coefficients = {'CC_conc_coef':None,
-                                'CC_csv':None}
-        self.notes = {'CC_conc_coef':None,
-                      'CC_csv':None}
-                
+        self.coefficients = {'CC_conc_coef': None, 'CC_csv': None}
+        self.notes = {'CC_conc_coef': None, 'CC_csv': None}
+
     @property
     def uid(self):
         return self._uid
-        
+
     @uid.setter
     def uid(self, d):
         r = re.compile('.{5}-.{6}-.{5}')
@@ -383,13 +611,12 @@ class DOSTACalibration():
             self._uid = d
         else:
             raise Exception(f"The instrument uid {d} is not a valid uid. Please check.")
-            
-            
-    def generate_file_path(self,dirpath,filename,ext=['.cap','.txt','.log'],exclude=['_V','_Data_Workshop']):
+
+    def generate_file_path(self, dirpath, filename, ext=['.cap', '.txt', '.log'], exclude=['_V', '_Data_Workshop']):
         """
         Function which searches for the location of the given file and returns
         the full path to the file.
-        
+
         Args:
             dirpath - parent directory path under which to search
             filename - the name of the file to search for
@@ -406,21 +633,21 @@ class DOSTACalibration():
             check = filename.split('.')
             filename = check[0]
             ext = ['.'+check[1]]
-        
+
         for root, dirs, files in os.walk(dirpath):
             dirs[:] = [d for d in dirs if d not in exclude]
             for fname in files:
                 if fnmatch.fnmatch(fname, [filename+'*'+x for x in ext]):
                     fpath = os.path.join(root, fname)
                     return fpath
-                
+
     def load_qct(self, filepath):
         """
         Function which parses the output from the QCT check-in and loads them into
         the DOSTA object.
-        
+
         Args:
-            filepath - the full directory path and filename 
+            filepath - the full directory path and filename
         Raises:
             ValueError - checks if the serial number parsed from the UID matches the
                 the serial number stored in the file.
@@ -428,16 +655,16 @@ class DOSTACalibration():
             self.coefficients - populated coefficients dictionary
             self.date - the calibration dates associated with the calibration values
             self.type - the type (i.e. 16+/37-IM) of the CTD
-            self.serial - populates the 5-digit serial number of the instrument 
+            self.serial - populates the 5-digit serial number of the instrument
         """
-        
+
         data = {}
         with open(filepath, errors='ignore') as file:
             reader = csv.reader(file, delimiter='\t')
             for row in reader:
-                data.update({reader.line_num:row})
-                
-        for key,info in data.items():
+                data.update({reader.line_num: row})
+
+        for key, info in data.items():
             # Find the serial number from the QCT check-in and compare to UID
             if 'serial number' in [x.lower() for x in info]:
                 serial_num = info[-1].zfill(5)
@@ -445,23 +672,23 @@ class DOSTACalibration():
                     raise ValueError(f'Serial number {serial_num.zfill(5)} from the QCT file does not match {self.serial} from the UID.')
                 else:
                     pass
-                
+
             # Find the svu foil coefficients
             if 'svufoilcoef' in [x.lower() for x in info]:
                 self.coefficients['CC_csv'] = [float(n) for n in info[3:]]
-            
+
             # Find the concentration coefficients
             if 'conccoef' in [x.lower() for x in info]:
                 self.coefficients['CC_conc_coef'] = [float(n) for n in info[3:]]
-                
+
     def add_notes(self, notes):
         """
-        This function adds notes to the calibration csv based on the 
+        This function adds notes to the calibration csv based on the
         calibration coefficients.
-        
+
         Args:
             notes - a dictionary with keys of the calibration coefficients
-                which correspond to an entry of desired notes about the 
+                which correspond to an entry of desired notes about the
                 corresponding coefficients
         Returns:
             self.notes - a dictionary with the entered notes.
@@ -470,41 +697,197 @@ class DOSTACalibration():
         for key in keys:
             self.notes[key] = notes[key]
 
-
     def write_csv(self, outpath):
         """
         This function writes the correctly named csv file for the ctd to the
         specified directory.
-        
+
         Args:
             outpath - directory path of where to write the csv file
         Raises:
-            ValueError - raised if the CTD object's coefficient dictionary 
+            ValueError - raised if the CTD object's coefficient dictionary
+                has not been populated
+        Returns:
+            self.to_csv - a csv of the calibration coefficients which is
+                written to the specified directory from the outpath.
+        """
+
+        # Run a check that the coefficients have actually been loaded
+        for key in self.coefficients.keys():
+            if self.coefficients[key] == None:
+                raise ValueError(f'No coefficients for {key} have been loaded.')
+
+        # Create a dataframe to write to the csv
+        data = {'serial': [self.serial]*len(self.coefficients),
+                'name': list(self.coefficients.keys()),
+                'value': list(self.coefficients.values()),
+                'notes': list(self.notes.values())
+                }
+        df = pd.DataFrame().from_dict(data)
+
+        # Generate the csv name
+        csv_name = self.uid + '__' + self.date + '.csv'
+
+        # Now write to
+        check = input(f"Write {csv_name} to {outpath}? [y/n]: ")
+        if check.lower().strip() == 'y':
+            df.to_csv(outpath+'/'+csv_name, index=False)
+
+
+class OPTAACalibration():
+
+    def __init__(self, uid):
+        self.serial = ''
+        self.uid = uid
+        self.date = None
+        self.cwlngth = []
+        self.awlngth = []
+        self.tcal = None
+        self.tbins = None
+        self.ccwo = []
+        self.acwo = []
+        self.tcarray = []
+        self.taarray = []
+        self.nbins = None  # number of temperature bins
+        self.coefficients = {'CC_taarray': 'SheetRef:CC_taarray',
+                             'CC_tcarray': 'SheetRef:CC_tcarray'}
+
+    @property
+    def uid(self):
+        return self._uid
+
+    @uid.setter
+    def uid(self, d):
+        r = re.compile('.{5}-.{6}-.{5}')
+        if r.match(d) is not None:
+            self.serial = 'ACS-' + d.split('-')[2].strip('0')
+            self._uid = d
+        else:
+            raise Exception(f"The instrument uid {d} is not a valid uid. Please check.")
+
+    def load_dev(self, filepath):
+        """
+        Function loads the dev file for the OPTAA.
+
+        Args:
+            filepath - the full path, including the name of the file, to the optaa
+                dev file.
+        Returns:
+            self.date - the date of calibration
+            self.tcal - calibration temperature
+            self.nbins - number of temperature bins
+            self.cwlngth
+            self.awlngth
+            self.ccwo
+            self.acwo
+            self.tcarray
+            self.taarray
+            self.coefficients - a dictionary of the calibration values and associated
+                keys following the OOI csv naming convention
+
+        """
+
+        if filepath.endswith('.zip'):
+            with ZipFile(filepath) as zfile:
+                filename = [name for name in zfile.namelist() if name.endswith('.dev')]
+                text = zfile.read(filename[0]).decode('ASCII')
+
+        else:
+            with open(filepath) as file:
+                text = file.read()
+
+        # Remove extraneous characters from the
+        punctuation = ''.join((letter for letter in string.punctuation if letter not in ';/.'))
+
+        for line in text.replace('\t', ' ').splitlines():
+            line = ''.join((word for word in line if word not in punctuation))
+
+            if 'tcal' in line:
+                data = line.split()
+                # Temperature calibration value
+                tcal = data.index('tcal')
+                self.tcal = data[tcal+1]
+                self.coefficients['CC_tcal'] = self.tcal
+                # Temperature calibration date
+                cal_date = data[-1].strip()
+                self.date = pd.to_datetime(cal_date).strftime('%Y%m%d')
+
+            elif ';' in line:
+                data, comment = line.split(';')
+
+                if 'temperature bins' in comment:
+                    if 'number' in comment:
+                        self.nbins = int(data)
+                    else:
+                        self.tbins = data.split()
+                        self.tbins = [float(x) for x in self.tbins]
+                        self.coefficients['CC_tbins'] = json.dumps(self.tbins)
+
+                elif 'C and A offset' in comment:
+                    data = data.split()
+                    self.cwlngth.append(float(data[0][1:]))
+                    self.awlngth.append(float(data[1][1:]))
+                    self.ccwo.append(float(data[3]))
+                    self.acwo.append(float(data[4]))
+                    tcrow = [float(x) for x in data[5:self.nbins+5]]
+                    tarow = [float(x) for x in data[self.nbins+5:2*self.nbins+5]]
+                    self.tcarray.append(tcrow)
+                    self.taarray.append(tarow)
+                    self.coefficients['CC_cwlngth'] = json.dumps(self.cwlngth)
+                    self.coefficients['CC_awlngth'] = json.dumps(self.awlngth)
+                    self.coefficients['CC_ccwo'] = json.dumps(self.ccwo)
+                    self.coefficients['CC_acwo'] = json.dumps(self.acwo)
+            
+                else:
+                    pass
+            
+            else:
+                pass
+            
+            
+    def write_csv(self, savepath):
+        """
+        This function writes the correctly named csv file for the ctd to the
+        specified directory.
+    
+        Args:
+            outpath - directory path of where to write the csv file
+        Raises:
+            ValueError - raised if the OPTAA's object's coefficient dictionary 
                 has not been populated
         Returns:
             self.to_csv - a csv of the calibration coefficients which is 
                 written to the specified directory from the outpath.
         """
-        
-        # Run a check that the coefficients have actually been loaded
-        for key in self.coefficients.keys():
-            if self.coefficients[key] == None:
-                raise ValueError(f'No coefficients for {key} have been loaded.')
-            
+        # Now, write to a csv file
         # Create a dataframe to write to the csv
-        data = {'serial':[self.serial]*len(self.coefficients),
-               'name':list(self.coefficients.keys()),
-               'value':list(self.coefficients.values()),
-               'notes':list(self.notes.values()) }
+        data = {
+            'serial':self.serial,
+            'name':list(self.coefficients.keys()),
+            'value':list(self.coefficients.values()),
+            'notes':['']*len(self.coefficients)
+        }
+        
         df = pd.DataFrame().from_dict(data)
         
-        # Generate the csv name
-        csv_name = self.uid + '__' + self.date + '.csv'
-        
+        # Generate the cal csv filename
+        filename = self.uid + '__' + self.date + '.csv'
         # Now write to 
-        check = input(f"Write {csv_name} to {outpath}? [y/n]: ")
+        check = input(f"Write {filename} to {savepath}? [y/n]: ")
         if check.lower().strip() == 'y':
-            df.to_csv(outpath+'/'+csv_name, index=False)
+            df.to_csv(savepath+'/'+filename, index=False)
+        
+        # Generate the tc and ta array filename
+        tc_name = filename + '__CC_tcarray.ext'
+        ta_name = filename + '__CC_taarray.ext'
+        
+        def write_array(filename, array):
+            with open(filename, 'w') as out:
+                array_writer = csv.writer(out)
+                array_writer.writerows(array)
+                
+        write_array(savepath+'/'+tc_name, self.tcarray)
+        write_array(savepath+'/'+ta_name, self.taarray)
 
 
 def generate_file_path(self,dirpath,filename,ext=['.cap','.txt','.log'],exclude=['_V','_Data_Workshop']):
