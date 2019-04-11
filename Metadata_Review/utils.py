@@ -749,8 +749,10 @@ class OPTAACalibration():
         self.tcarray = []
         self.taarray = []
         self.nbins = None  # number of temperature bins
-        self.coefficients = {'CC_taarray': 'SheetRef:CC_taarray',
-                             'CC_tcarray': 'SheetRef:CC_tcarray'}
+        self.coefficients = {
+                        'CC_taarray': 'SheetRef:CC_taarray',
+                        'CC_tcarray': 'SheetRef:CC_tcarray'
+                        }
 
     @property
     def uid(self):
@@ -770,8 +772,8 @@ class OPTAACalibration():
         Function loads the dev file for the OPTAA.
 
         Args:
-            filepath - the full path, including the name of the file, to the optaa
-                dev file.
+            filepath - the full path, including the name of the file, to the
+                optaa dev file.
         Returns:
             self.date - the date of calibration
             self.tcal - calibration temperature
@@ -782,8 +784,8 @@ class OPTAACalibration():
             self.acwo
             self.tcarray
             self.taarray
-            self.coefficients - a dictionary of the calibration values and associated
-                keys following the OOI csv naming convention
+            self.coefficients - a dictionary of the calibration values and
+                associated keys following the OOI csv naming convention
 
         """
 
@@ -837,64 +839,63 @@ class OPTAACalibration():
                     self.coefficients['CC_awlngth'] = json.dumps(self.awlngth)
                     self.coefficients['CC_ccwo'] = json.dumps(self.ccwo)
                     self.coefficients['CC_acwo'] = json.dumps(self.acwo)
-            
+
                 else:
                     pass
-            
+
             else:
                 pass
-            
-            
+
     def write_csv(self, savepath):
         """
         This function writes the correctly named csv file for the ctd to the
         specified directory.
-    
+
         Args:
             outpath - directory path of where to write the csv file
         Raises:
-            ValueError - raised if the OPTAA's object's coefficient dictionary 
+            ValueError - raised if the OPTAA's object's coefficient dictionary
                 has not been populated
         Returns:
-            self.to_csv - a csv of the calibration coefficients which is 
+            self.to_csv - a csv of the calibration coefficients which is
                 written to the specified directory from the outpath.
         """
         # Now, write to a csv file
         # Create a dataframe to write to the csv
         data = {
-            'serial':self.serial,
-            'name':list(self.coefficients.keys()),
-            'value':list(self.coefficients.values()),
-            'notes':['']*len(self.coefficients)
+            'serial': self.serial,
+            'name': list(self.coefficients.keys()),
+            'value': list(self.coefficients.values()),
+            'notes': ['']*len(self.coefficients)
         }
-        
+
         df = pd.DataFrame().from_dict(data)
-        
+
         # Generate the cal csv filename
         filename = self.uid + '__' + self.date + '.csv'
-        # Now write to 
+        # Now write to
         check = input(f"Write {filename} to {savepath}? [y/n]: ")
         if check.lower().strip() == 'y':
             df.to_csv(savepath+'/'+filename, index=False)
-        
+
         # Generate the tc and ta array filename
         tc_name = filename + '__CC_tcarray.ext'
         ta_name = filename + '__CC_taarray.ext'
-        
+
         def write_array(filename, array):
             with open(filename, 'w') as out:
                 array_writer = csv.writer(out)
                 array_writer.writerows(array)
-                
+
         write_array(savepath+'/'+tc_name, self.tcarray)
         write_array(savepath+'/'+ta_name, self.taarray)
 
 
-def generate_file_path(self,dirpath,filename,ext=['.cap','.txt','.log'],exclude=['_V','_Data_Workshop']):
+def generate_file_path(dirpath, filename, ext=['.cap', '.txt', '.log'], exclude=['_V', '_Data_Workshop']):
     """
     Function which searches for the location of the given file and returns
     the full path to the file.
-    
+
     Args:
         dirpath - parent directory path under which to search
         filename - the name of the file to search for
@@ -920,11 +921,11 @@ def generate_file_path(self,dirpath,filename,ext=['.cap','.txt','.log'],exclude=
                 return fpath
 
 
-def whoi_asset_tracking(spreadsheet,sheet_name,instrument_class='All',whoi=True,series=None):
+def whoi_asset_tracking(spreadsheet, sheet_name, instrument_class='All', whoi=True, series=None):
     """
     Loads all the individual sensors of a specific instrument class and
     series type. Currently applied only for WHOI deployed instruments.
-    
+
     Args:
         spreadsheet - directory path and name of the excel spreadsheet with
             the WHOI asset tracking information.
@@ -935,24 +936,24 @@ def whoi_asset_tracking(spreadsheet,sheet_name,instrument_class='All',whoi=True,
         series - a specified class of the instrument to load. Defaults to None,
             which will load all of the series for a specified instrument class
     """
-    
-    all_sensors = pd.read_excel(spreadsheet,sheet_name=sheet_name,header=1)
+
+    all_sensors = pd.read_excel(spreadsheet, sheet_name=sheet_name, header=1)
     # Select a specific class of instruments
     if instrument_class == 'All':
         inst_class = all_sensors
     else:
-        inst_class  = all_sensors[all_sensors['Instrument\nClass']==instrument_class]
+        inst_class = all_sensors[all_sensors['Instrument\nClass'] == instrument_class]
     # Return only the whoi instruments?
-    if whoi == True:
+    if whoi:
         whoi_insts = inst_class[inst_class['Deployment History'] != 'EA']
     else:
         whoi_insts = inst_class
     # Slect a specific series of the instrument?
-    if series != None:
+    if series is not None:
         instrument = whoi_insts[whoi_insts['Series'] == series]
     else:
         instrument = whoi_insts
- 
+
     return instrument
 
 
@@ -960,7 +961,7 @@ def load_asset_management(instrument, filepath):
     """
     Loads the calibration csv files from a local repository containing
     the asset management information.
-    
+
     Args:
         instrument - a pandas dataframe with the asset tracking information
             for a specific instrument.
@@ -971,21 +972,21 @@ def load_asset_management(instrument, filepath):
     Returns:
         csv_dict - a dictionary with keys of the UIDs from the instrument dataframe
             which correspond to lists of the relevant calibration csv files
-            
+
     """
-    
+
     # Check that the input is a pandas DataFrame
     if type(instrument) != pd.core.frame.DataFrame:
         raise TypeError()
-        
-    uids = sorted( list( set( instrument['UID'] ) ) )
-    
+
+    uids = sorted(list(set(instrument['UID'])))
+
     csv_dict = {}
     for uid in uids:
         # Get a specified uid from the instrument dataframe
         instrument['UID_match'] = instrument['UID'].apply(lambda x: True if uid in x else False)
         instrument[instrument['UID_match'] == True]
-        
+
         # Now, get all the csvs from asset management for a particular UID
         csv_files = []
         for file in os.listdir(filepath):
@@ -993,32 +994,32 @@ def load_asset_management(instrument, filepath):
                 csv_files.append(file)
             else:
                 pass
-        
+
         # Update the dictionary storing the asset management files for each UID
         if len(csv_files) > 0:
             csv_dict.update({uid:csv_files})
         else:
             pass
-        
+
     return csv_dict
 
 
 def all_the_same(elements):
     """
     This function checks which values in an array are all the same.
-    
+
     Args:
         elements - an array of values
     Returns:
         error - an array of length (m-1) which checks if
-    
+
     """
     if len(elements) < 1:
         return True
     el = iter(elements)
     first = next(el, None)
-    #check = [element == first for element in el]
-    error = [np.isclose(element,first) for element in el]
+    # check = [element == first for element in el]
+    error = [np.isclose(element, first) for element in el]
     return error
 
 
@@ -1027,7 +1028,7 @@ def locate_cal_error(array):
     This function locates which source file (e.g. xmlcon vs csv vs cal)
     have calibration values that are different from the others. It does
     NOT identify which is correct, only which is different.
-    
+
     Args:
         array - A numpy array which contains the values for a specific
                 calibration coefficient for a specific date from all of
@@ -1046,10 +1047,10 @@ def locate_cal_error(array):
         return True
     # If there is a mixture of True/False, find the false and return them
     elif any(error) == True:
-        indices = [i+1 for i, j in enumerate(error) if j == False]
+        indices = [i+1 for i, j in enumerate(error) if j is False]
         dataset = list(array.index[indices])
         return dataset
-    # Last, if all are false, that means the first value 
+    # Last, if all are false, that means the first value
     else:
         return False
 
@@ -1059,17 +1060,17 @@ def search_for_errors(df):
     This function is designed to search through a pandas dataframe
     which contains all of the calibration coefficients from all of
     the files, and check for differences.
-    
-    Args: 
+
+    Args:
         df - A dataframe which contains all fo the calibration coefficients
         from the asset management csv, qct checkout, and the vendor
         files (.cal and .xmlcon)
     Returns:
-        cal_errors - A nested dictionary containing the calibration timestamp, the
-        relevant calibration coefficient, and which file(s) have the
+        cal_errors - A nested dictionary containing the calibration timestamp,
+        the relevant calibration coefficient, and which file(s) have the
         erroneous calibration file.
     """
-    
+
     cal_errors = {}
     for date in np.unique(df['Cal Date']):
         df2 = df[df['Cal Date'] == date]
@@ -1081,23 +1082,25 @@ def search_for_errors(df):
                 pass
             else:
                 error = locate_cal_error(array)
-                if error == False:
-                    wrong_cals.update({column:array.index[0]})
-                elif error == True:
+                if error is False:
+                    wrong_cals.update({column: array.index[0]})
+                elif error is True:
                     pass
                 else:
-                    wrong_cals.update({column:error})
-        
+                    wrong_cals.update({column: error})
+
         if len(wrong_cals) < 1:
-            cal_errors.update({str(date).split('T')[0]:'No Errors'})
+            cal_errors.update({str(date).split('T')[0]: 'No Errors'})
         else:
-            cal_errors.update({str(date).split('T')[0]:wrong_cals})
-    
+            cal_errors.update({str(date).split('T')[0]: wrong_cals})
+
     return cal_errors
 
 
 def convert_type(x):
-	# Converts the input from string to float
+    """
+    Converts type from string to float
+    """
     if type(x) is str:
         return float(x)
     else:
@@ -1113,14 +1116,14 @@ def get_instrument_sn(df):
 def get_serial_nums(df, uids):
     """
     Returns the serial numbers of all the instrument uids.
-    
+
     Args:
         df - dataframe with the asset management information
         uids - list of the uids for the instruments
     Returns:
         serial_nums - a dictionary of uids (key) matched to their
             respective serial numbers
-        
+
     """
     serial_nums = {}
 
@@ -1129,31 +1132,6 @@ def get_serial_nums(df, uids):
         serial_num = list(df[df['UID_match'] == True]['Supplier\nSerial Number'])
         if 'CTD' in uid:
             serial_num = serial_num[0].split('-')[1]
-        serial_nums.update({uid:serial_num})
-        
+        serial_nums.update({uid: serial_num})
+
     return serial_nums
-
-
-def generate_file_path(dirpath,filename,ext=['.cap','.txt','.log'],exclude=['_V','_Data_Workshop']):
-    """
-    Function which searches for the location of the given file and returns
-    the full path to the file.
-    
-    Args:
-        dirpath - parent directory path under which to search
-        filename - the name of the file to search for
-        ext - 
-        exclude - optional list which allows for excluding certain
-            directories from the search
-    Returns:
-        fpath - the file path to the filename from the current
-            working directory.
-    """
-    for root, dirs, files in os.walk(dirpath):
-        dirs[:] = [d for d in dirs if d not in exclude]
-        for fname in files:
-            if fnmatch.fnmatch(fname, [filename+'*'+x for x in ext]):
-                fpath = os.path.join(root, fname)
-                return fpath
-
-
