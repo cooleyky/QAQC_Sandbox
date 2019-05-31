@@ -1,48 +1,11 @@
-#!/usr/bin/env python
-
-import datetime
-import re
+import sys
 import os
-from wcmatch import fnmatch
-import xml.etree.ElementTree as et
-import pandas as pd
-import numpy as np
-import string
-from zipfile import ZipFile
 import csv
-import PyPDF2
-from nltk.tokenize import word_tokenize
-import json
-
-
-def generate_file_path(dirpath, filename, ext=['.cap', '.txt', '.log'], exclude=['_V', '_Data_Workshop']):
-    """
-    Function which searches for the location of the given file and returns
-    the full path to the file.
-
-    Args:
-        dirpath - parent directory path under which to search
-        filename - the name of the file to search for
-        ext - file endings to search for
-        exclude - optional list which allows for excluding certain
-            directories from the search
-    Returns:
-        fpath - the file path to the filename from the current
-            working directory.
-    """
-    # Check if the input file name has an extension already
-    # If it does, parse it for input into the search algo
-    if '.' in filename:
-        check = filename.split('.')
-        filename = check[0]
-        ext = ['.'+check[1]]
-
-    for root, dirs, files in os.walk(dirpath):
-        dirs[:] = [d for d in dirs if d not in exclude]
-        for fname in files:
-            if fnmatch.fnmatch(fname, [filename+'*'+x for x in ext]):
-                fpath = os.path.join(root, fname)
-                return fpath
+import re
+import numpy as np
+import pandas as pd
+import shutil
+from wcmatch import fnmatch
 
 
 def whoi_asset_tracking(spreadsheet, sheet_name, instrument_class='All', whoi=True, series=None):
@@ -128,115 +91,6 @@ def load_asset_management(instrument, filepath):
     return csv_dict
 
 
-def all_the_same(elements):
-    """
-    This function checks which values in an array are all the same.
-
-    Args:
-        elements - an array of values
-    Returns:
-        error - an array of length (m-1) which checks if
-
-    """
-    if len(elements) < 1:
-        return True
-    el = iter(elements)
-    first = next(el, None)
-    # check = [element == first for element in el]
-    error = [np.isclose(element, first) for element in el]
-    return error
-
-
-def locate_cal_error(array):
-    """
-    This function locates which source file (e.g. xmlcon vs csv vs cal)
-    have calibration values that are different from the others. It does
-    NOT identify which is correct, only which is different.
-
-    Args:
-        array - A numpy array which contains the values for a specific
-                calibration coefficient for a specific date from all of
-                the calibration source files
-    Returns:
-        dataset - a list containing which calibration sources are different
-                from the other files
-        True - if all of the calibration values are the same
-        False - if the first calibration value is different
-    """
-    # Call the function to check if there are any differences between each of
-    # calibration values from the different sheets
-    error = all_the_same(array)
-    # If they are all the same, return True
-    if all(error):
-        return True
-    # If there is a mixture of True/False, find the false and return them
-    elif any(error) is True:
-        indices = [i+1 for i, j in enumerate(error) if j is False]
-        dataset = list(array.index[indices])
-        return dataset
-    # Last, if all are false, that means the first value
-    else:
-        return False
-
-
-def search_for_errors(df):
-    """
-    This function is designed to search through a pandas dataframe
-    which contains all of the calibration coefficients from all of
-    the files, and check for differences.
-
-    Args:
-        df - A dataframe which contains all fo the calibration coefficients
-        from the asset management csv, qct checkout, and the vendor
-        files (.cal and .xmlcon)
-    Returns:
-        cal_errors - A nested dictionary containing the calibration timestamp,
-        the relevant calibration coefficient, and which file(s) have the
-        erroneous calibration file.
-    """
-
-    cal_errors = {}
-    for date in np.unique(df['Cal Date']):
-        df2 = df[df['Cal Date'] == date]
-        wrong_cals = {}
-        for column in df2.columns.values:
-            array = df2[column]
-            array.sort_index()
-            if array.dtype == 'datetime64[ns]':
-                pass
-            else:
-                error = locate_cal_error(array)
-                if error is False:
-                    wrong_cals.update({column: array.index[0]})
-                elif error is True:
-                    pass
-                else:
-                    wrong_cals.update({column: error})
-
-        if len(wrong_cals) < 1:
-            cal_errors.update({str(date).split('T')[0]: 'No Errors'})
-        else:
-            cal_errors.update({str(date).split('T')[0]: wrong_cals})
-
-    return cal_errors
-
-
-def convert_type(x):
-    """
-    Converts type from string to float
-    """
-    if type(x) is str:
-        return float(x)
-    else:
-        return x
-
-
-def get_instrument_sn(df):
-    serial_num = list(df[df['UID_match'] == True]['Supplier\nSerial Number'])
-    serial_num = serial_num[0].split('-')[1]
-    return serial_num
-
-
 def get_serial_nums(df, uids):
     """
     Returns the serial numbers of all the instrument uids.
@@ -261,6 +115,30 @@ def get_serial_nums(df, uids):
     return serial_nums
 
 
+def get_qct_files(df, qct_directory):
+    """
+    Function which gets all the QCT files associated with the
+    instrument serial numbers.
+
+    Args:
+        serial_nums - serial numbers of the instruments
+        dirpath - path to the directory containing the calibration files
+    Returns:
+        calibration_files - a dictionary of instrument uids with associated
+            calibration files
+    """
+
+    qct_dict = {}
+    uids = list(set(df['UID']))
+    for uid in uids:
+        df['UID_match'] = df['UID'].apply(lambda x: True if uid in x else False)
+        qct_series = df[df['UID_match'] == True]['QCT Testing']
+        qct_series = list(qct_series.iloc[0].split('\n'))
+        qct_dict.update({uid: qct_series})
+
+    return qct_dict
+
+
 def get_calibration_files(serial_nums, dirpath):
     """
     Function which gets all the calibration files associated with the
@@ -276,10 +154,11 @@ def get_calibration_files(serial_nums, dirpath):
     calibration_files = {}
     for uid in serial_nums.keys():
         sn = serial_nums.get(uid)
-        sn = str(sn[:])
+        if type(sn) is list:
+            sn = str(sn[0])
         files = []
         for file in os.listdir(cal_directory):
-            if 'Calibration_Files' in file:
+            if 'calibration_file' in file.lower():
                 if sn in file:
                     files.append(file)
         calibration_files.update({uid: files})
@@ -287,11 +166,186 @@ def get_calibration_files(serial_nums, dirpath):
     return calibration_files
 
 
-def ensure_dir(file_path):
+def ensure_dir(filepath):
     """
     Function which checks that the directory where you want
     to save a file exists. If it doesn't, it creates the
     directory.
     """
-    if not os.path.exists(file_path):
-        os.makedirs(file_path)
+    if not os.path.exists(filepath):
+        os.makedirs(filepath)
+
+
+def load_csv_info(csv_dict, filepath):
+    """
+    Loads the calibration coefficient information contained in asset management
+
+    Args:
+        csv_dict - a dictionary which associates an instrument UID to the
+            calibration csv files in asset management
+        filepath - the path to the directory containing the calibration csv files
+    Returns:
+        csv_cals - a dictionary which associates an instrument UID to a pandas
+            dataframe which contains the calibration coefficients. The dataframes
+            are indexed by the date of calibration
+    """
+
+    # Load the calibration data into pandas dataframes, which are then placed into
+    # a dictionary by the UID
+    csv_cals = {}
+    for uid in csv_dict:
+        cals = pd.DataFrame()
+        for file in csv_dict[uid]:
+            data = pd.read_csv(filepath+file)
+            date = file.split('__')[1].split('.')[0]
+            data['CAL DATE'] = pd.to_datetime(date)
+            cals = cals.append(data)
+        csv_cals.update({uid: cals})
+
+    # Pivot the dataframe to be sorted based on calibration date
+    for uid in csv_cals:
+        csv_cals[uid] = csv_cals[uid].pivot(
+            index=csv_cals[uid]['CAL DATE'], columns='name')['value']
+
+    return csv_cals
+
+
+def splitDataFrameList(df, target_column):
+    """
+    Args:
+        df = dataframe to split
+        target_column = the column containing the values to split
+    Returns:
+        new_rows - a dataframe with each entry for the target column
+            separated, with each element moved into a new row. The
+            values in the other columns are duplicated across the
+            newly divided rows.
+    """
+
+    def splitListToRows(row, row_accumulator, target_column):
+        split_row = row[target_column]
+        for s in split_row:
+            new_row = row.to_dict()
+            new_row[target_column] = s
+            row_accumulator.append(new_row)
+
+    new_rows = []
+    df.apply(splitListToRows, axis=1, args=(new_rows, target_column))
+    new_df = pd.DataFrame(new_rows)
+    return new_df
+
+
+def generate_file_path(dirpath, filename, ext=['.cap', '.txt', '.log'], exclude=['_V', '_Data_Workshop']):
+    """
+    Function which searches for the location of the given file and returns
+    the full path to the file.
+
+    Args:
+        dirpath - parent directory path under which to search
+        filename - the name of the file to search for
+        ext - file endings to search for
+        exclude - optional list which allows for excluding certain
+            directories from the search
+    Returns:
+        fpath - the file path to the filename from the current
+            working directory.
+    """
+    # Check if the input file name has an extension already
+    # If it does, parse it for input into the search algo
+    if '.' in filename:
+        check = filename.split('.')
+        filename = check[0]
+        ext = ['.'+check[1]]
+
+    for root, dirs, files in os.walk(dirpath):
+        dirs[:] = [d for d in dirs if d not in exclude]
+        for fname in files:
+            if fnmatch.fnmatch(fname, [filename+'*'+x for x in ext]):
+                fpath = os.path.join(root, fname)
+                return fpath
+
+
+def get_file_date(x):
+    x = str(x)
+    ind1 = x.index('__')
+    ind2 = x.index('.')
+    return x[ind1+2:ind2]
+
+
+def check_exact_coeffs(coeffs_dict):
+    """
+    Function to check if the calibration coefficients match exactly. The
+    calibration coefficients to be checked should be stored as pandas
+    dataframes within a dictionary. The dictionary keys identify which DataFrame
+    is associated with which calibration source.
+    Args:
+        coeffs_dict - a dictionary with the source files (csv, cal, qct) as keys
+            with pandas dataframes of the calibration coefficients
+    Returns:
+        mask - a True/False mask of the calibration coefficient values if they match
+    """
+
+    # Part 1: coeff by coeff comparison between each source of coefficients
+    keys = list(coeffs_dict.keys())
+    comparison = {}
+    for i in range(len(keys)):
+        names = (keys[i], keys[i - (len(keys)-1)])
+        check = len(coeffs_dict.get(keys[i])['value']) == len(
+            coeffs_dict.get(keys[i - (len(keys)-1)])['value'])
+        if check:
+            compare = np.equal(coeffs_dict.get(keys[i])['value'], coeffs_dict.get(
+                keys[i - (len(keys)-1)])['value'])
+            comparison.update({names: compare})
+        else:
+            pass
+
+    # Part 2: now do a logical_and comparison between the results from part 1
+    keys = list(comparison.keys())
+    i = 0
+    mask = comparison.get(keys[i])
+    while i < len(keys)-1:
+        i = i + 1
+        mask = np.logical_and(mask, comparison.get(keys[i]))
+        print(i)
+
+    return mask
+
+
+def check_relative_coeffs(coeffs_dict):
+    """
+    Function to check if the calibration coefficients match exactly. The
+    calibration coefficients to be checked should be stored as pandas
+    dataframes within a dictionary. The dictionary keys identify which DataFrame
+    is associated with which calibration source.
+    Args:
+        coeffs_dict - a dictionary with the source files (csv, cal, qct) as keys
+            with pandas dataframes of the calibration coefficients
+    Returns:
+        mask - a True/False mask of the calibration coefficient values if they match
+            to within a tolerance of 0.001%.
+    """
+
+    # Part 1: coeff by coeff comparison between each source of coefficients
+    keys = list(coeffs_dict.keys())
+    comparison = {}
+    for i in range(len(keys)):
+        names = (keys[i], keys[i - (len(keys)-1)])
+        check = len(coeffs_dict.get(keys[i])['value']) == len(
+            coeffs_dict.get(keys[i - (len(keys)-1)])['value'])
+        if check:
+            compare = np.isclose(coeffs_dict.get(keys[i])['value'], coeffs_dict.get(
+                keys[i - (len(keys)-1)])['value'], rtol=1e-5)
+            comparison.update({names: compare})
+        else:
+            pass
+
+    # Part 2: now do a logical_and comparison between the results from part 1
+    keys = list(comparison.keys())
+    i = 0
+    mask = comparison.get(keys[i])
+    while i < len(keys)-1:
+        i = i + 1
+        mask = np.logical_and(mask, comparison.get(keys[i]))
+        print(i)
+
+    return mask
