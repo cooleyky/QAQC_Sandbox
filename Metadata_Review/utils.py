@@ -377,3 +377,24 @@ def check_relative_coeffs(coeffs_dict):
         print(i)
 
     return mask
+
+
+def copy_to_local(cal_path):
+    """
+    Function which copies the files from the cal_path to a locally
+    created temp directory
+    """
+
+    for filepath in cal_path:
+        # Create a folder in which to save extracted data
+        folder, *ignore = filepath.split('/')[-1].split('.')
+        savedir = '/'.join((os.getcwd(), 'temp', 'cal_data', folder))
+        # Now make sure that the save directory exists and can be used
+        ensure_dir(savedir)
+
+        if filepath.endswith('.zip'):
+            with ZipFile(filepath, 'r') as zfile:
+                for file in zfile.namelist():
+                    zfile.extract(file, path=savedir)
+        else:
+            shutil.copy(filepath, savedir)
