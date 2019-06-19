@@ -28,3 +28,4 @@ temp/
 *.bat
 *.metadata
 *.PNG
+*~lock.*
