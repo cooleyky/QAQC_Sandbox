@@ -7,7 +7,7 @@ import string
 from zipfile import ZipFile
 
 
-class SPKIRCalibration():
+class SPKIRCalibrationParser():
     # Class that stores calibration values for CTDs.
 
     def __init__(self, uid):
@@ -61,9 +61,11 @@ class SPKIRCalibration():
         Zipfiles are acceptable inputs.
 
         Args:
-            filepath - path to the directory where the calibration files are stored.
+            filepath - path to the directory with filename which has the
+                calibration coefficients to be parsed and loaded
         Returns:
-            data - opened file containing the calibration information read into memory.
+            data - opened file containing the calibration information read into
+                memory but is not parsed
         """
 
         if filepath.endswith('.zip'):
@@ -74,7 +76,7 @@ class SPKIRCalibration():
                 # Get and open the latest calibration file
                 if len(filename) == 1:
                     data = zfile.read(filename[0]).decode('ascii')
-                    self.source_file(filepath, filename[0])
+                    self.source_file(filepath, filename)
 
                 elif len(filename) > 1:
                     raise FileExistsError(f"Multiple .cal files found in {filepath}.")
@@ -94,14 +96,19 @@ class SPKIRCalibration():
 
     def parse_cal(self, data):
         """
-        Function to parse the .dev file in order to load the
-        calibration coefficients for the OPTAA.
+        Function which parses the calibration data and loads the calibration
+        coefficients into the object structure.
 
         Args:
-            data - opened .cal file in ascii-format
+            data - calibration data which has been read and loaded into memory
+        Raises:
+            ValueError - raised if the serial number parsed from the calibration
+                data does not match the UID
         Returns:
-            coefficients - a dictionary of the calibration coefficients with
-                key:value pairs of name:array_of_values
+            self.coefficients - populated dictionary of calibration coefficient
+                values
+            self.date - all relevant calibration dates parsed into a dictionary
+            self.serial - parsed serial data
         """
 
         flag = False
@@ -137,6 +144,13 @@ class SPKIRCalibration():
         Routine which parses out the source file and filename
         where the calibration coefficients are sourced from. Automatically
         stored in the first calibration coefficient "notes" field.
+
+        Args:
+            filepath - path to the directory with filename which has the
+                calibration coefficients to be parsed and loaded
+        Returns:
+            self.source - string which contains the parent file and the
+                filename of the calibration data source
         """
 
         if filepath.lower().endswith('.cal'):
@@ -195,3 +209,14 @@ class SPKIRCalibration():
         # check = 'y'
         if check.lower().strip() == 'y':
             df.to_csv(outpath+'/'+csv_name, index=False)
+
+
+if __name__ == '__main__':
+    # Request the input data
+    uid = input("Enter the instrument uid: ")
+    fpath = input("Enter the full filepath to the calibration file: ")
+    outpath = input("Enter the filepath where to save the parsed calibration: ")
+    # Initialize the calibration parser
+    spkir = SPKIRCalibrationParser(uid)
+    spkir.load_cal(fpath)
+    spkir.write_csv(outpath)
