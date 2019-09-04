@@ -158,7 +158,7 @@ def get_calibration_files(serial_nums, dirpath):
         if type(sn) is list:
             sn = str(sn[0])
         files = []
-        for file in os.listdir(cal_directory):
+        for file in os.listdir(dirpath):
             if 'calibration_file' in file.lower():
                 if sn in file:
                     files.append(file)
