@@ -7,9 +7,12 @@ __pycache__/
 Ship_data/CTD SOP draft.docx
 Ship_data/RCA_BottleSum.psa
 Ship_data/RCA_Bottle_DatCnv.psa
+
+# Add in the files from the metadata review which to ignore
 *_metadata_communications*.csv
 *_Metadata_communications*.csv
 *_Metadata_Communications*.csv
+QARTOD/*.csv
 
 # I want to ignore the Data files which are already version controlled in Alfresco or Vault
 Data/
