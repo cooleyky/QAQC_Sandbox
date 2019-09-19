@@ -14,6 +14,10 @@ Water Sampling/
 ctd/
 temp/
 
+# Want to not load my ooi-user info
+user_info.yaml
+m2m_config.yml
+
 # I want to avoid the files which I've downloaded
 *.asc
 *.bat
