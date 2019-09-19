@@ -7,6 +7,7 @@ __pycache__/
 Ship_data/CTD SOP draft.docx
 Ship_data/RCA_BottleSum.psa
 Ship_data/RCA_Bottle_DatCnv.psa
+*_metadata_communications.csv
 
 # I want to ignore the Data files which are already version controlled in Alfresco or Vault
 Data/
