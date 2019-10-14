@@ -11,7 +11,7 @@ import PyPDF2
 from nltk.tokenize import word_tokenize
 
 
-class CTDCalibration():
+class CTDBPCalibration():
     # Class that stores calibration values for CTDs.
 
     def __init__(self, uid):
@@ -20,6 +20,7 @@ class CTDCalibration():
         self.ctd_type = uid
         self.coefficients = {}
         self.date = {}
+        self.source = ''
 
         self.coefficient_name_map = {
             'TA0': 'CC_a0',
@@ -342,6 +343,19 @@ class CTDCalibration():
                 else:
                     self.coefficients.update({name: value})
 
+    def source_file(self, filepath, filename):
+        """Get the parent directory and file where the cal coefficients are parsed from"""
+        dcn = filepath.split('/')[-1]
+        if type(filename) == list:
+            filename = filename[0]
+        if dcn == filename:
+            dcn = filepath.split('/')[-2]
+        elif filepath == filename:
+            dcn = filepath.split('/')[-2]
+            filename = filepath.split('/')[-1]
+
+        self.source = f'Source file: {dcn} > {filename}'
+
     def load_cal(self, filepath):
         """
         Opens and loads CTDBP calibration coefficients stored in a .cal file.
@@ -364,6 +378,7 @@ class CTDCalibration():
                 if len(filename) > 0:
                     data = zfile.read(filename[0]).decode('ASCII')
                     self.read_cal(data)
+                    self.source_file(filepath, filename)
                 else:
                     FileExistsError(f"No .cal file found in {filepath}.")
 
@@ -371,6 +386,7 @@ class CTDCalibration():
             with open(filepath) as filename:
                 data = filename.read()
                 self.read_cal(data)
+                self.source_file(filepath, filename)
 
         else:
             FileExistsError(f"No .cal file found in {filepath}.")
@@ -481,6 +497,7 @@ class CTDCalibration():
                 if len(filename) > 0:
                     data = et.parse(zfile.open(filename[0]))
                     self.read_xml(data)
+                    self.source_file(filepath, filename)
                 else:
                     FileExistsError(f"No .cal file found in {filepath}.")
 
@@ -488,6 +505,7 @@ class CTDCalibration():
             with open(filepath) as file:
                 data = et.parse(file)
                 self.read_xml(data)
+                self.source_file(filepath, file)
 
         else:
             FileExistsError(f"No .cal file found in {filepath}.")
@@ -508,6 +526,7 @@ class CTDCalibration():
 
         with open(filepath) as filename:
             data = filename.read()
+            self.source_file(filepath, filepath)
 
         if self.ctd_type == '37':
             data = data.replace('<', ' ').replace('>', ' ')
@@ -570,6 +589,13 @@ class CTDCalibration():
                 'notes': ['']*len(self.coefficients)
                 }
         df = pd.DataFrame().from_dict(data)
+        df.sort_values(by='name', inplace=True)
+
+        # Check if there is a source file
+        if len(self.source) == 0:
+            self.source_file = input(f'No source file info. Please enter info:')
+        # Add the source file to the dataframe notes
+        df['notes'].iloc[0] = self.source
 
         # Generate the csv name
         cal_date = max(self.date.values())

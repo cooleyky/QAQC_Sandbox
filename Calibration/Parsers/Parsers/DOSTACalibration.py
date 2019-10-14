@@ -2,20 +2,18 @@
 
 import datetime
 import re
-import os
-from wcmatch import fnmatch
+import csv
 import pandas as pd
-import numpy as np
-import string
 from zipfile import ZipFile
+from dateutil.parser import parse
+from xml.etree.ElementTree import XML
 
 
 class DOSTACalibration():
 
-    def __init__(self, uid, calibration_date):
+    def __init__(self, uid):
         self.serial = ''
         self.uid = uid
-        self.date = pd.to_datetime(calibration_date).strftime('%Y%m%d')
         self.coefficients = {'CC_conc_coef': None, 'CC_csv': None}
         self.notes = {'CC_conc_coef': None, 'CC_csv': None}
 
@@ -48,6 +46,7 @@ class DOSTACalibration():
             self.type - the type (i.e. 16+/37-IM) of the CTD
             self.serial - populates the 5-digit serial number of the instrument
         """
+        self.source_file(filepath)
 
         data = {}
         with open(filepath, errors='ignore') as file:
@@ -60,7 +59,8 @@ class DOSTACalibration():
             if 'serial number' in [x.lower() for x in info]:
                 serial_num = info[-1].zfill(5)
                 if self.serial != serial_num:
-                    raise ValueError(f'Serial number {serial_num.zfill(5)} from the QCT file does not match {self.serial} from the UID.')
+                    raise ValueError(
+                        f'Serial number {serial_num.zfill(5)} from the QCT file does not match {self.serial} from the UID.')
                 else:
                     pass
 
@@ -71,6 +71,48 @@ class DOSTACalibration():
             # Find the concentration coefficients
             if 'conccoef' in [x.lower() for x in info]:
                 self.coefficients['CC_conc_coef'] = [float(n) for n in info[3:]]
+                
+    def load_docx(self, filepath):
+        """
+        Take the path of a docx file as argument, return the text of the file,
+        and parse the QCT test date        
+        """
+        
+        WORD_NAMESPACE = '{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+        PARA = WORD_NAMESPACE + 'p'
+        TEXT = WORD_NAMESPACE + 't'
+        
+        def get_docx_text(filepath):
+            """
+            Take the path of a docx file as argument, return the text in unicode.
+            """
+            with ZipFile(filepath) as document:
+                xml_content = document.read('word/document.xml')
+            tree = XML(xml_content)
+            
+            paragraphs = []
+            for paragraph in tree.getiterator(PARA):
+                texts = [node.text for node in paragraph.getiterator(TEXT) if node.text]
+                if texts:
+                    paragraphs.append(''.join(texts))
+            
+            return '\n\n'.join(paragraphs)
+        
+        document = get_docx_text(filepath)
+        for line in document.splitlines():
+            if 'test date' in line.lower():
+                date = parse(line, fuzzy=True)
+                self.date = date.strftime('%Y%m%d')
+            
+    def source_file(self, filepath):
+        """
+        Routine which parses out the source file and filename
+        where the calibration coefficients are sourced from.
+        """
+        dcn = filepath.split('/')[-2]
+        filename = filepath.split('/')[-1]
+
+        self.source = f'Source file: {dcn} > {filename}'
 
     def add_notes(self, notes):
         """
@@ -115,6 +157,9 @@ class DOSTACalibration():
                 'notes': list(self.notes.values())
                 }
         df = pd.DataFrame().from_dict(data)
+
+        # Add in the source
+        df['notes'].iloc[0] = self.source
 
         # Generate the csv name
         csv_name = self.uid + '__' + self.date + '.csv'

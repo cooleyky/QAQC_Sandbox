@@ -7,7 +7,7 @@ import string
 from zipfile import ZipFile
 
 
-class SPKIRCalibrationParser():
+class SPKIRCalibration():
     # Class that stores calibration values for CTDs.
 
     def __init__(self, uid):
