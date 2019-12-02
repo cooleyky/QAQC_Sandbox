@@ -28,6 +28,7 @@ Ship_data/Irminger
 Ship_data/Papa
 Ship_data/Pioneer
 Ship_data/Southern
+Ship_data/*.ipynb
 
 # Want to not load my ooi-user info
 user_info.yaml
