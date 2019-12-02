@@ -7,6 +7,7 @@ __pycache__/
 Ship_data/CTD SOP draft.docx
 Ship_data/RCA_BottleSum.psa
 Ship_data/RCA_Bottle_DatCnv.psa
+Data_Review/Data Availability/Results/
 
 # Add in the files from the metadata review which to ignore
 *_metadata_communications*.csv
