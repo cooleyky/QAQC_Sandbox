@@ -22,6 +22,13 @@ Water Sampling/
 ctd/
 temp/
 
+# Ignore the ship data files
+Ship_data/Argentine
+Ship_data/Irminger
+Ship_data/Papa
+Ship_data/Pioneer
+Ship_data/Southern
+
 # Want to not load my ooi-user info
 user_info.yaml
 m2m_config.yml
