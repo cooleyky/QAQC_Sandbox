@@ -32,7 +32,7 @@ Ship_data/Southern
 Ship_data/*.ipynb
 
 # Ignore the calibration notebooks
-Calibration/*/*.ipynb
+Calibration/**/*.ipynb
 
 # Ignore the metadata review notebooks
 Metadata_Review/*.ipynb
