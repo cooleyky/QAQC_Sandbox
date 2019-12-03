@@ -664,7 +664,7 @@ for i in range(len(metadata_communications)):
                                                                           URL)
     else:
         pass
-        
+
 
 cgsn_filter = metadata_communications['Platform'].apply(lambda x: False if x.startswith('CE') else True)
 metadata_communications = metadata_communications[cgsn_filter]

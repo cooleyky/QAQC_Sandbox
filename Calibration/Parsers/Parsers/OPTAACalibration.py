@@ -160,20 +160,22 @@ class OPTAACalibration():
         for line in data.splitlines():
             # Split the data based on data -> header split
             parts = line.split(';')
+            
             # If the len isn't number 2,
-            if len(parts) is not 2:
-                # Find the calibration temperature and date
-                if 'tcal' in line.lower():
-                    line = ''.join((x for x in line if x not in [
+            if 'tcal' in line.lower():
+                line = ''.join((x for x in line if x not in [
                                    y for y in string.punctuation if y is not '/']))
-                    parts = line.split()
-                    # Calibration temperature
-                    tcal = parts[1].replace('C', '')
-                    tcal = float(tcal)/10
-                    self.coefficients['CC_tcal'] = tcal
-                    # Calibration date
-                    date = parts[-1].strip(string.punctuation)
-                    self.date = pd.to_datetime(date).strftime('%Y%m%d')
+                parts = line.split()
+                # Calibration temperature
+                tcal = parts[1].replace('C', '')
+                tcal = float(tcal)/10
+                self.coefficients['CC_tcal'] = tcal
+                # Calibration date
+                date = parts[-1].strip(string.punctuation)
+                self.date = pd.to_datetime(date).strftime('%Y%m%d')
+                
+            elif len(parts) != 2:
+                pass
 
             else:
                 info, comment = parts
