@@ -31,6 +31,12 @@ Ship_data/Pioneer
 Ship_data/Southern
 Ship_data/*.ipynb
 
+# Ignore the calibration notebooks
+Calibration/*.ipynb
+
+# Ignore the metadata review notebooks
+Metadata_Review/*.ipynb
+
 # Want to not load my ooi-user info
 user_info.yaml
 m2m_config.yml
