@@ -19,8 +19,9 @@ import numpy as np
 import netCDF4 as nc
 import xarray as xr
 
-username = 'OOIAPI-C9OSZAQABG1H3U'
-token = 'JA48WUQVG7F'
+userinfo = yaml.load(open('../../user_info.yaml'))
+username = userinfo['apiname']
+token = userinfo['apitoken']
 
 data_url = 'https://ooinet.oceanobservatories.org/api/m2m/12576/sensor/inv'
 anno_url = 'https://ooinet.oceanobservatories.org/api/m2m/12580/anno/find'
@@ -162,7 +163,7 @@ pdId = {}
 for stream in set(df['Stream']):
     stream_params = toc['parameters_by_stream'][stream]
     pdId.update({stream:stream_params})
-    
+
 
 pdId_df = pd.DataFrame(columns=['stream','pdId'])
 for key in pdId.keys():
@@ -171,7 +172,7 @@ for key in pdId.keys():
         'stream':key,
         'pdId':value
     }, ignore_index=True )
-    
+
 
 df = df.merge(pdId_df, how='left', left_on=['Stream'], right_on=['stream'])
 

@@ -25,8 +25,10 @@ import yaml
 from github import Github
 warnings.filterwarnings("ignore")
 
-username = 'reedan88'
-token = '03c5a5f29623dc3ae4439e547b409d95de6cb2b2'
+# Import the github user info
+userinfo = yaml.load(open('github_user.yaml'))
+username = userinfo['apiname']
+token = userinfo['apitoken']
 
 g = Github(username, token)
 
