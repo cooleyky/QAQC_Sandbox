@@ -41,6 +41,7 @@ Metadata_Review/**/*.ipynb
 # Want to not load my ooi-user info
 user_info.yaml
 m2m_config.yml
+github_user.yaml
 
 # I want to avoid the files which I've downloaded
 *.asc
