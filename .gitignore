@@ -16,7 +16,7 @@ Data_Review/**/*.ipynb
 *_Metadata_communications*.csv
 *_Metadata_Communications*.csv
 QARTOD/*.csv
-QARTOD/Output/
+QARTOD/Results/
 QARTOD/**/*.ipynb
 
 # I want to ignore the Data files which are already version controlled in Alfresco or Vault
