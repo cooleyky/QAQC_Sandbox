@@ -38,6 +38,7 @@ Calibration/**/*.ipynb
 
 # Ignore the metadata review notebooks
 Metadata_Review/**/*.ipynb
+Metadata_Review/**/*.csv
 
 # Want to not load my ooi-user info
 user_info.yaml
