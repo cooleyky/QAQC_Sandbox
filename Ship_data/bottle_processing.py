@@ -53,23 +53,23 @@ os.listdir(basepath+'Pioneer')
 
 basepath = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Ship_data/'
 array = 'Pioneer/'
-cruise =   'Pioneer-08_AR-18_2017-05-30/'
+cruise =   'Pioneer-07_AR-08_2016-09-27/'
 
 sorted(os.listdir(basepath+array+cruise))
 
 water = 'Water Sampling/'
 ctd = 'ctd/'
-leg = 'Leg 1 (ar08a)/'
+leg = 'Leg 2 (ar08b)/'
 
 sorted(os.listdir(basepath+array+cruise+water))
 
-sample_dir = basepath + array + cruise + ctd
+sample_dir = basepath + array + cruise + leg + ctd
 water_dir = basepath + array + cruise + water
-log_path = water_dir + 'Irminger_Sea-05_AR30-03_CTD_Sampling_Log.xlsx'
+log_path = water_dir + 'Pioneer-07_AR-08B_CTD_Sampling_Log.xlsx'
 chl_path = water_dir + ''
 dic_path = water_dir + ''
-nutrients_path = water_dir + ''
-salts_and_o2_path = water_dir + 'Irminger_Sea-05_AR30-03_Oxygen_Salinity_Sample_Data/'
+nutrients_path = water_dir + 'Pioneer-07_AR-08_Nutrients_Sample_Data_2019-11-12_ver_1-00.xlsx'
+salts_and_o2_path = water_dir + 'Pioneer-07_AR-08B_Oxygen_Salinity_Sample_Data/'
 
 
 # **===================================================================================================================**
@@ -322,7 +322,9 @@ log.rename(columns={'Log:  Oxygen Bottle #':'Log: Oxygen Bottle #'}, inplace=Tru
 
 log.head()
 
-log["Log: Start Time"] = log["Log: Start Time"].apply(lambda x: pd.to_datetime(x,format='%H:%M') if type(x) == str else x)
+log["Log: Start Time"] = log["Log: Start Time"].apply(str)
+
+log["Log: Start Time"] = log["Log: Start Time"].apply(lambda x: pd.to_datetime(x,format='%H%M') if type(x) == str else x)
 # Next, need to reformat the Date and Time columns to be pandas datetime objects and merge into a single column
 log['Log: Start Date'] = log['Log: Start Date'].apply(lambda x: pd.to_datetime(x).strftime('%Y-%m-%d') if not pd.isnull(x) else '')
 log['Log: Start Time'] = log['Log: Start Time'].apply(lambda x: x.strftime('%H:%M:%SZ') if not pd.isnull(x) else '00:00:00Z')
@@ -517,7 +519,7 @@ log["Chl: Comments"] = None
 # **===================================================================================================================**
 # ### Nutrients
 
-nuts = pd.read_excel(nutrients_path)#, sheet_name='Summary')
+nuts = pd.read_excel(nutrients_path, sheet_name='Summary')
 
 # Rename the columns to name the source
 for colname in list(nuts.columns.values):
@@ -588,7 +590,7 @@ ctd = pd.read_csv(sample_dir + 'CTD_Summary.csv')
 ctd.drop(columns='Unnamed: 0', inplace=True)
 # Replace the CTD w/CTD: for easier post-processing
 for colname in list(ctd.columns.values):
-    ctd.rename(columns={colname: 'CTD: ' + colname}, inplace=True)
+    ctd.rename(columns={colname: 'CTD: ' + colname.replace('CTD ',"")}, inplace=True)
 ctd.head()
 
 ctd["CTD: Cast"] = ctd["CTD: Cast"].apply(lambda x: x.lstrip('0'))
@@ -632,12 +634,12 @@ columns = ['Log: Cruise ID',
            'Chl: Phaeo (ug/l)', 
            'Log: Chlorophyll Duplicate', 
            'Log: Chlorophyll Filter Duplicate',
-           'Nuts: Nitrate [µmol/L]',
-           'Nuts: Phosphate [µmol/L]',
-           'Nuts: Silicate [µmol/L]', 
-           #'Nuts: Nitrate+Nitrite [µmol/L]',
-           'Nuts: Ammonium [µmol/L]', 
-           'Nuts: Nitrite [µmol/L]', 
+           'Nuts: Nitrate', # [µmol/L]',
+           'Nuts: Phosphate',# [µmol/L]',
+           'Nuts: Silicate', # [µmol/L]', 
+           'Nuts: Nitrate+Nitirte',# [µmol/L]',
+           'Nuts: Ammonium',# [µmol/L]', 
+           'Nuts: Nitrite',# [µmol/L]', 
            'Log: Nitrate Duplicate',
            'Sal: Salinity [psu]',
            'Log: Salts Duplicate',
@@ -715,11 +717,11 @@ name_map = {
     'Discrete Fo/Fa Ratio': None,
     'Discrete Fluorescence Flag': None,
     'Discrete Fluorescence Duplicate Flag': 'Log: Chlorophyll Duplicate',
-    'Discrete Phosphate [uM]': 'Nuts: Phosphate [µmol/L]',
-    'Discrete Silicate [uM]': 'Nuts: Silicate [µmol/L]',
-    'Discrete Nitrate [uM]': 'Nuts: Nitrate [µmol/L]',
-    'Discrete Nitrite [uM]': 'Nuts: Nitrite [µmol/L]',
-    'Discrete Ammonium [uM]': 'Nuts: Ammonium [µmol/L]',
+    'Discrete Phosphate [uM]': 'Nuts: Phosphate', #' [µmol/L]',
+    'Discrete Silicate [uM]': 'Nuts: Silicate',# [µmol/L]',
+    'Discrete Nitrate [uM]': 'Nuts: Nitrate',# [µmol/L]',
+    'Discrete Nitrite [uM]': 'Nuts: Nitrite',# [µmol/L]',
+    'Discrete Ammonium [uM]': 'Nuts: Ammonium',# [µmol/L]',
     'Discrete Nutrients Flag': None,
     'Discrete Nutrients Duplicate Flag': 'Log: Nitrate Duplicate',
     'Discrete Salinity [psu]': 'Sal: Salinity [psu]',
@@ -762,6 +764,8 @@ final
 
 final.drop_duplicates(inplace=True)
 final
+
+cruise_id
 
 # cruise_id = 'AR-31A'
 final['Cruise'] = final['Cruise'].fillna(value=cruise_id)

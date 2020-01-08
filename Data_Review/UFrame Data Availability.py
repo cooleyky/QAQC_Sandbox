@@ -494,7 +494,7 @@ for deploy_num, start_time, stop_time in deploy_df.values:
         results = results.append(deployment_stats)
     except:
         results = deployment_stats
-    
+
 
 results
 
