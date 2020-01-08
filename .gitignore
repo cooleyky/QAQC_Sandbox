@@ -2,6 +2,7 @@
 __pycache__/
 *.py[cod]
 *.so
+*.nc
 
 .ipynb_checkpoints/
 Ship_data/CTD SOP draft.docx
