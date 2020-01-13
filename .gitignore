@@ -8,13 +8,21 @@ __pycache__/
 Ship_data/CTD SOP draft.docx
 Ship_data/RCA_BottleSum.psa
 Ship_data/RCA_Bottle_DatCnv.psa
+
+# Data Review Directory Files
 Data_Review/Data Availability/Results/
+Data_Review/**/*.csv
 Data_Review/**/*.ipynb
 
-# Add in the files from the metadata review which to ignore
-*_metadata_communications*.csv
-*_Metadata_communications*.csv
-*_Metadata_Communications*.csv
+# Metadata Review & Communications Directory Files
+Metadata_Review/**/*.ipynb
+Metadata_Review/**/*.csv
+Metadata_Review/**/*.xlsx
+Metadata_Review/**/*.sqlite
+Metadata_Review/Metadata_Communications/Output/
+
+
+# QARTOD Directory Files
 QARTOD/*.csv
 QARTOD/Results/
 QARTOD/**/*.ipynb
@@ -33,13 +41,11 @@ Ship_data/Pioneer
 Ship_data/Southern
 Ship_data/*.ipynb
 
-# Ignore the calibration notebooks
+# Calibration directory files to ignore
 Calibration/**/*.ipynb
 
 # Ignore the metadata review notebooks
-Metadata_Review/**/*.ipynb
-Metadata_Review/**/*.csv
-Metadata_Review/**/*.xlsx
+
 
 # Want to not load my ooi-user info
 user_info.yaml
