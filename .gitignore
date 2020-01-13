@@ -10,6 +10,7 @@ Ship_data/**/*.ipynb
 Ship_data/**/*.csv
 Ship_data/**/*.doc[x]
 Ship_data/**/*.psa
+Ship_data/**/*.xls[x]
 Ship_data/Argentine
 Ship_data/Irminger
 Ship_data/Papa
@@ -46,6 +47,9 @@ Calibration/**/*.ipynb
 user_info.yaml
 m2m_config.yml
 github_user.yaml
+
+# Ignore a few specific files
+
 
 # I want to avoid the files which I've downloaded
 *.asc
