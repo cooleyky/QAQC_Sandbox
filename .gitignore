@@ -3,11 +3,19 @@ __pycache__/
 *.py[cod]
 *.so
 *.nc
-
 .ipynb_checkpoints/
-Ship_data/CTD SOP draft.docx
-Ship_data/RCA_BottleSum.psa
-Ship_data/RCA_Bottle_DatCnv.psa
+
+# Ship Data Directory Files
+Ship_data/**/*.ipynb
+Ship_data/**/*.csv
+Ship_data/**/*.doc[x]
+Ship_data/**/*.psa
+Ship_data/Argentine
+Ship_data/Irminger
+Ship_data/Papa
+Ship_data/Pioneer
+Ship_data/Southern
+
 
 # Data Review Directory Files
 Data_Review/Data Availability/Results/
@@ -21,7 +29,6 @@ Metadata_Review/**/*.xlsx
 Metadata_Review/**/*.sqlite
 Metadata_Review/Metadata_Communications/Output/
 
-
 # QARTOD Directory Files
 QARTOD/*.csv
 QARTOD/Results/
@@ -34,12 +41,7 @@ ctd/
 temp/
 
 # Ignore the ship data files
-Ship_data/Argentine
-Ship_data/Irminger
-Ship_data/Papa
-Ship_data/Pioneer
-Ship_data/Southern
-Ship_data/*.ipynb
+
 
 # Calibration directory files to ignore
 Calibration/**/*.ipynb
