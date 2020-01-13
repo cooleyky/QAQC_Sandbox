@@ -16,7 +16,6 @@ Ship_data/Papa
 Ship_data/Pioneer
 Ship_data/Southern
 
-
 # Data Review Directory Files
 Data_Review/Data Availability/Results/
 Data_Review/**/*.csv
@@ -40,14 +39,8 @@ Water Sampling/
 ctd/
 temp/
 
-# Ignore the ship data files
-
-
-# Calibration directory files to ignore
+# Calibration Directory files to ignore
 Calibration/**/*.ipynb
-
-# Ignore the metadata review notebooks
-
 
 # Want to not load my ooi-user info
 user_info.yaml
@@ -73,4 +66,5 @@ github_user.yaml
 *.bat
 *.metadata
 *.PNG
+*.odp
 *~lock.*
