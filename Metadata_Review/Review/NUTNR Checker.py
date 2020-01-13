@@ -60,9 +60,9 @@ glider_directory = '/media/andrew/OS/Users/areed/Documents/Project_Files/Records
 
 # If the predeployment file is not listed in asset tracking, need to hunt through all the predeployment files for the possible candidates:
 
-sn = '1065'
+sn = '1091'
 
-cal_file = 'NUTNR-B_ISUS_SN_285_Calibration_Files_2015-07-20.zip'
+cal_file = '3305-00527-00061-A_SN_NTR-1089_Recovery_NUTNR-B.zip'
 
 # Initialize the parser:
 
@@ -77,7 +77,7 @@ for file in os.listdir(doc_directory):
 
 #filepath = cal_directory + '/' + cal_file
 #filepath = doc_directory +'/' + zfile
-filepath = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Metadata_Review/'+'3305-00527-00035-A'+'.zip'
+filepath = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Metadata_Review/Review/temp/'+'3305-00527-00062-A'+'.zip'
 
 nutnr = NUTNRCalibration('CGINS-NUTNRB-'+sn.zfill(5))
 
@@ -130,7 +130,8 @@ dt
 
 sn.zfill(5)
 
-source_csv = pd.read_csv(temp_directory+'/CGINS-NUTNRB-'+sn.zfill(5)+'__'+dt+'.csv')
+source_path = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Metadata_Review/Review/temp/'
+source_csv = pd.read_csv(source_path+'CGINS-NUTNRB-'+sn.zfill(5)+'__'+dt+'.csv')
 source_csv['value'] = source_csv['value'].apply(lambda x: reformat_arrays(x))
 #source_csv['serial'] = 1029
 source_csv

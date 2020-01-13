@@ -47,7 +47,7 @@ from Parsers.OPTAACalibration import OPTAACalibration
 # 2. Your local asset-management repository has the requisite **csv** file to check
 # 3. You have downloaded the **source** of the csv file
 
-csv_dir = '/home/andrew/Documents/OOI-CGSN/asset-management/calibration/OPTAAJ/'
+csv_dir = '/home/andrew/Documents/OOI-CGSN/asset-management/'
 #source_dir = '/media/andrew/OS/Users/areed/Documents/Project_Files/Records/Instrument_Records/OPTAA/OPTAA_Cal/'
 source_dir = '/home/andrew/Downloads/'
 
@@ -63,11 +63,11 @@ for file in os.listdir(source_dir):
         source_file = file
         print(source_file)
 
-source_file = 'OPTAA-D_AC-S_SN_145_Calibration_Files_2016-02-25.zip'
+source_file = 'OPTAA-D_AC-S_SN_257_Calibration_Files_2019-10-29.zip'
 
 # Initialize the parser:
 
-optaa = OPTAACalibration('CGINS-OPTAAJ-00145')
+optaa = OPTAACalibration('CGINS-OPTAAD-00257')
 
 # Read in the calibration coefficients:
 
@@ -98,7 +98,7 @@ optaa.uid, optaa.serial, optaa.date
 sn = optaa.serial.split('-')[1].zfill(5)
 dt = optaa.date
 
-source_csv = pd.read_csv(temp_directory+'/CGINS-OPTAAJ-'+sn+'__'+dt+'.csv')
+source_csv = pd.read_csv(temp_directory+'/CGINS-OPTAAD-'+sn+'__'+dt+'.csv')
 source_csv
 
 
@@ -125,16 +125,16 @@ source_csv['value'] = source_csv['value'].apply(reformat_arrays)
 
 source_csv['notes'].iloc[0]
 
-source_taarray = pd.read_csv(temp_directory+'/CGINS-OPTAAJ-'+sn+'__'+dt+'__CC_taarray.ext',header=None)
+source_taarray = pd.read_csv(temp_directory+'/CGINS-OPTAAD-'+sn+'__'+dt+'__CC_taarray.ext',header=None)
 source_taarray.head()
 
-source_tcarray = pd.read_csv(temp_directory+'/CGINS-OPTAAJ-'+sn+'__'+dt+'__CC_tcarray.ext',header=None)
+source_tcarray = pd.read_csv(temp_directory+'/CGINS-OPTAAD-'+sn+'__'+dt+'__CC_tcarray.ext',header=None)
 source_tcarray.head()
 
 # **====================================================================================================================**
 # Load the csv from asset management in order to compare
 
-csv_filename = 'CGINS-OPTAAJ-00145__20160528.csv'
+csv_filename = 'calibration/OPTAAD/CGINS-OPTAAD-00257__20191029.csv'
 csv_file = pd.read_csv(csv_dir+csv_filename)
 
 csv_file.sort_values(by='name', inplace=True)
@@ -143,8 +143,8 @@ csv_file.reset_index(inplace=True, drop=True)
 
 csv_file['value'] = csv_file['value'].apply(reformat_arrays)
 
-taarray = pd.read_csv(csv_dir + 'CGINS-OPTAAJ-00145__20160528__CC_taarray.ext',header=None)
-tcarray = pd.read_csv(csv_dir + 'CGINS-OPTAAJ-00145__20160528__CC_tcarray.ext',header=None)
+taarray = pd.read_csv(csv_dir + 'calibration/OPTAAD/CGINS-OPTAAD-00257__20191029__CC_taarray.ext',header=None)
+tcarray = pd.read_csv(csv_dir + 'calibration/OPTAAD/CGINS-OPTAAD-00257__20191029__CC_tcarray.ext',header=None)
 
 taarray
 
