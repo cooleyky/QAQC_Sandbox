@@ -127,11 +127,17 @@ streams = get_and_print_api('/'.join((url, array, node, sensor, method)))
 # Specify the stream name
 stream = 'dosta_abcdjm_dcl_instrument_recovered'
 
+# **==================================================================================================================**
+# ### Deployment Data
+# Since I suspect UFrame is not returning all of the data for a given instrument, I need to 
+
 # **====================================================================================================================**
 # ### Request Data
 # With the array, node, sensor, method, and stream identified after querying the m2m api, we can build the request for actual data. Instead of requesting _all_ of the data available for the array-node-sensor-method-stream, I'll request the data for a particular deployment using the startDateTime and stopDateTime parsed from the deployment csvs. This will make the query for data significantly faster.
 
 data_request_url = '/'.join((url, array, node, sensor, method, stream))
+
+data_request_url
 
 thredds_url = get_thredds_url(data_request_url, None, None, username, token)
 thredds_url
@@ -142,13 +148,21 @@ datasets
 datasets = get_netcdf_datasets(thredds_url)
 datasets
 
-ds = xr.open
+dostas = sorted([x for x in datasets if 'ctdbp' not in x])
+dostas
 
-df2 = pd.DataFrame(columns=dfs[0].columns)
-for key in dfs.keys():
-    df2 = pd.concat([df2, dfs.get(key)])
+for d in dostas:
+    ds = xr.open_dataset(d)
+    ds = ds.swap_dims({'obs':'time'})
+    dsf = ds.to_dataframe()
+    try:
+        df = df.append(ds.to_dataframe())
+    except:
+        df = ds.to_dataframe()
 
-dfs
+df
+
+df['deployment'].unique()
 
 ds = ds.swap_dims({'obs':'time'})
 
@@ -156,11 +170,14 @@ ds = ds.sortby('time')
 
 df = ds.to_dataframe()
 
-ds = xr.open_dataset(datasets[0])
-ds = ds.swap_dims({'obs':'time'})
+df
 
 # Strip the data
-data.drop(columns=[x for x in data.columns if 'qc' in x], inplace=True)
+df.drop(columns=[x for x in df.columns if 'qc' in x], inplace=True)
+
+df
+
+df['deployment'].unique()
 
 deployment = data[data['deployment'] == 1]
 deployment.head()
@@ -222,7 +239,7 @@ def get_netcdf_datasets(thredds_url):
         if not datasets: 
             print(f'Re-requesting data: {counter}')
             counter = counter + 1
-            time.sleep(30)
+            time.sleep(10)
     return datasets
 
 
@@ -297,6 +314,9 @@ def request_UFrame_data(url, array, node, sensor, method, stream, min_time, max_
 
 # Define a function to return the sensor metadata
 def get_sensor_metadata(metadata_url, username=username, token=token):
+    """
+    Function which gets the metadata for a given sensor from OOI Net
+    """
     
     # Request and download the relevant metadata
     r = requests.get(metadata_url, auth=(username, token))
@@ -315,6 +335,22 @@ def get_sensor_metadata(metadata_url, username=username, token=token):
 
 # Define a function to filter the metadata for the relevant variable info
 def get_UFrame_fillValues(data, metadata, stream):
+    """
+    Function which returns the fill values for a particular data set
+    based on that dataset's metadata information
+    
+    Args:
+        data - a dataframe which contains the data from a given sensor
+            stream
+        metadata - a dataframe which contains the metadata information
+            for the given data 
+        stream - the particular instrument stream from which the data
+            was requested from
+    
+    Returns:
+        fillValues - a dictionary with key:value pair of variable names
+            from the data stream : fill values
+    """
     
     # Filter the metadata down to a particular sensor stream
     mdf = metadata[metadata['stream']==stream]
@@ -345,8 +381,10 @@ def get_UFrame_fillValues(data, metadata, stream):
 metadata = get_sensor_metadata('/'.join((url, array, node, sensor, 'metadata')), username, token)
 metadata.head()
 
+stream
+
 # Get the fill values
-fillValues = get_UFrame_fillValues(data, metadata, stream)
+fillValues = get_UFrame_fillValues(df, metadata, stream)
 fillValues
 
 
