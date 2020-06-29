@@ -5,8 +5,8 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.3.3
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -45,9 +45,12 @@ import matplotlib.pyplot as plt
 # %matplotlib inline
 import datetime
 import pytz
+import yaml
 
-username = 'OOIAPI-C9OSZAQABG1H3U'
-token = 'JA48WUQVG7F'
+# Load the gitHub user info
+user_info = yaml.load(open('../user_info.yaml'))
+username = user_info['apiname']
+token = user_info['apikey']
 
 # ## Step 1. Set up the sensor names, url names, etc.
 
@@ -66,10 +69,10 @@ cal_url = asset_url + '/asset/cal'
 # I want to utilize the **CTDBP** on the Coastal Pioneer Central Surface Mooring **CP01CNSM**, which is mounted on the Near-Surface Instrument Frame **RID27**.
 
 # List the site, node, instrument names
-site = 'CP01CNSM'
-node = 'RID27'
-sensor = '03-CTDBPC000'
-method = 'recovered_host' # 'recovered_inst' 'telemetered'
+site = 'GA01SUMO'
+node = 'RID16'
+sensor = '03-CTDBPF000'
+method = 'recovered_inst' # 'recovered_inst' 'telemetered'
 
 
 # Function to make an API request and print the results
@@ -98,7 +101,44 @@ def convert_time(ms):
 
 # -
 
-convert_time(1449014400000)
+# ### Provenance Data:
+
+import json
+
+with open("/home/andrew/Downloads/deployment0003_GA01SUMO-RID16-03-CTDBPF000-recovered_inst-ctdbp_cdef_instrument_recovered_aggregate_provenance.json") as file:
+    provenance = json.load(file)
+provenance
+
+# What are the keys in the provenance json object?
+for key in provenance.keys():
+    print(key)
+
+# #### query_parameter_provenance
+
+# What is the query_parameter_provenance
+provenance.get('query_parameter_provenance')
+
+# #### instrument_provenance
+
+provenance.get('instrument_provenance')
+
+# #### provenance
+
+provenance.get('provenance')
+
+# #### provenance_messages
+
+provenance.get('provenance_messages')
+
+# #### requestUUID
+
+provenance.get('requestUUID')
+
+# #### computed_provenance
+
+provenance.get('computed_provenance')
+
+
 
 # ### Vocabulary Metadata:
 # Check out basic instrument vocab (metadata), which will return the reference designator, and allow us to make sure we have the correct instrument:
@@ -169,7 +209,6 @@ np.unique(deploy_df['sensor'])
 str(deploy_df['stop'].iloc[9])
 
 
-# +
 # Develop a function to plot a timeline of deployments
 def plot_deployment_timeline(df):
     import matplotlib.dates as mdates
@@ -219,9 +258,6 @@ def plot_deployment_timeline(df):
     # Remove components for easier read
     plt.setp((ax.get_yticklabels() + ax.get_yticklines() + list(ax.spines.values())), visible=False)
     plt.show()
-        
-    
-# -
 
 plot_deployment_timeline(deploy_df)
 

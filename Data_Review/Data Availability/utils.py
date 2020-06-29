@@ -75,6 +75,7 @@ def get_thredds_url(data_request_url, min_time, max_time, username, token):
         data_urls = r.json()
     else:
         print(r.reason)
+        return None
 
     # The asynchronous data request is contained in the 'allURLs' key,
     # in which we want to find the url to the thredds server
@@ -208,12 +209,22 @@ def request_UFrame_data(url, array, node, sensor, method, stream, min_time, max_
 
     # Query the thredds url
     thredds_url = get_thredds_url(data_request_url, min_time, max_time, username, token)
+    if thredds_url is None:
+        return None
 
     # Find and return the netCDF datasets from the thredds url
     datasets = get_netcdf_datasets(thredds_url)
 
+    # Filter to remove companion data streams that aren't the target stream
+    datasets = [d for d in datasets if 'ENG' not in d]
+    if 'CTD' not in sensor:
+        datasets = [d for d in datasets if 'CTD' not in d]
+
     # Load the netCDF files from the datasets
-    ds = load_netcdf_datasets(datasets)
+    if len(datasets) == 0 or datasets == None:
+        return None
+    else:
+        ds = load_netcdf_datasets(datasets)
 
     # Convert the xarray dataset to a pandas dataframe for ease of use
     df = ds.to_dataframe()
@@ -223,7 +234,7 @@ def request_UFrame_data(url, array, node, sensor, method, stream, min_time, max_
 
 
 # Define a function to return the sensor metadata
-def get_sensor_metadata(metadata_url, username=username, token=token):
+def get_sensor_metadata(metadata_url, username, token):
     """
     Function which gets the metadata for a given sensor from OOI Net
     """
@@ -285,3 +296,91 @@ def get_UFrame_fillValues(data, metadata, stream):
         })
 
     return fillValues
+
+
+# Define a function to calculate the data availability for a day
+def calc_UFrame_data_availability(subset_data, fillValues):
+    """
+    Function which calculates the data availability for a particular dataset.
+
+    Args:
+        subset_data - a pandas dataframe with time as the primary index
+        fillValues - a dictionary of key:value pairs with keys which correspond
+            to the subset_data column headers and values which correspond to the
+            associated fill values for that column
+    Returns:
+        data_availability - a dictionary with keys corresponding to the
+            subset_data column headers and values with the percent data available
+    """
+
+    # Initialize a dictionary to store results
+    data_availability = {}
+
+    for col in subset_data.columns:
+
+        # Check for NaNs in each col
+        nans = len(subset_data[subset_data[col].isnull()][col])
+
+        # Check for values with fill values
+        fv = fillValues.get(col)
+        if fv is not None:
+            if np.isnan(fv):
+                fills = 0
+            else:
+                fills = len(subset_data[subset_data[col] == fv][col])
+        else:
+            fills = 0
+
+        # Get the length of the whole dataframe
+        num_data = len(subset_data[col])
+
+        # If there is no data in the time period,
+        if num_data == 0:
+            data_availability.update({
+                col: 0,
+            })
+        else:
+            # Calculate the statistics for the nans, fills, and length
+            num_bad = nans + fills
+            num_good = num_data - num_bad
+            per_good = (num_good/num_data)*100
+
+            # Update the dictionary with the stats for a particular variable
+            data_availability.update({
+                col: per_good
+            })
+
+    return data_availability
+
+
+# Define a function to bin the time period into midnight-to-midnight days
+def time_periods(startDateTime, stopDateTime):
+    """
+    Generates an array of dates with midnight-to-midnight
+    day timespans. The startDateTime and stopDateTime are
+    then append to the first and last dates.
+    """
+    startTime = pd.to_datetime(startDateTime)
+    if type(stopDateTime) == float:
+        stopDateTime = pd.datetime.now()
+    stopTime = pd.to_datetime(stopDateTime)
+    days = pd.date_range(start=startTime.ceil('D'), end=stopTime.floor('D'), freq='D')
+
+    # Generate a list of times
+    days = [x.strftime('%Y-%m-%dT%H:%M:%SZ') for x in days]
+    days.insert(0, startTime.strftime('%Y-%m-%dT%H:%M:%SZ'))
+    days.append(stopTime.strftime('%Y-%m-%dT%H:%M:%SZ'))
+
+    return days
+
+
+def make_dirs(path):
+    """
+    Function which checks if a path exists,
+    and if it doesn't, makes the directory.
+    """
+    check = os.path.exists(path)
+    if not check:
+        os.makedirs(path)
+    else:
+        print(f'"{path}" already exists')
