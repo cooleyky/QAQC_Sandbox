@@ -5,8 +5,8 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.4.2
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -20,6 +20,7 @@
 
 # Import libraries
 import os, shutil, sys, time, re, requests, csv, datetime, pytz
+import time
 import yaml
 import pandas as pd
 import numpy as np
@@ -28,12 +29,16 @@ import xarray as xr
 import warnings
 warnings.filterwarnings("ignore")
 
+# #### Set OOINet API access
+# In order access and download data from OOINet, need to have an OOINet api username and access token. Those can be found on your profile after logging in to OOINet. Your username and access token should NOT be stored in this notebook/python script (for security). It should be stored in a yaml file, kept in the same directory, named user_info.yaml.
+
 # Import user info for accessing UFrame
 userinfo = yaml.load(open('../user_info.yaml'))
 username = userinfo['apiname']
 token = userinfo['apikey']
 
-# Define the relevant UFrame api paths
+# #### Define relevant UFrame api urls paths
+
 data_url = 'https://ooinet.oceanobservatories.org/api/m2m/12576/sensor/inv'
 anno_url = 'https://ooinet.oceanobservatories.org/api/m2m/12580/anno/find'
 vocab_url = 'https://ooinet.oceanobservatories.org/api/m2m/12586/vocab/inv'
@@ -79,28 +84,96 @@ def convert_time(ms):
 
 # **==================================================================================================================**
 # ### Data Streams
-# First, I want to identify all of the instruments and their associated data streams located on CGSN arrays. This involves querying UFrame and iterating 
+# First, we want to identify all of the instruments and their associated data streams located on the CGSN arrays. This involves querying UFrame and walking-through all the reference designators, then saving the **array, node, sensor, method, and stream** information in a table.
 
-# Want to identify all the different data streams within an array - are we going to 
-data_streams = pd.DataFrame(columns=['array', 'node', 'sensor', 'method', 'stream'])
-for array in [arr for arr in get_and_print_api(data_url) if arr.startswith(('CP','G'))]:
-    # Now iterate through the nodes of a particular array
-    for node in get_and_print_api('/'.join((data_url, array))):
-        # Iterate through all of the sensors on an array-node, ignoring the engineering streams
-        for sensor in [sen for sen in get_and_print_api('/'.join((data_url, array, node))) if 'ENG' not in sen]:
-            # Iterate through all of the methods for each array-node-sensor combo
-            for method in get_and_print_api('/'.join((data_url, array, node, sensor))):
-                # Iterate through all of the streams for each array-node-sensor-method combo
-                for stream in get_and_print_api('/'.join((data_url, array, node, sensor, method))):
-                    # Now append to the dataframe
-                    data_streams = data_streams.append({
-                        'array':array,
-                        'node':node,
-                        'sensor':sensor,
-                        'method':method,
-                        'stream':stream
-                    }, ignore_index=True)
+def get_cgsn_data_streams(data_url, include_eng=True):
+    """Query and download all CGSN data streams into a table."""
+    
+    # Initialize the table to store the results
+    data_streams = pd.DataFrame(columns=['array', 'node', 'sensor', 'method', 'stream'])
+    
+    # Walk through all OOINet CGSN data arrays
+    # Get the Pioneer and Global arrays
+    arrays = [arr for arr in get_and_print_api(data_url) if arr.startswith(('CP','G','CE'))]
+    for array in arrays:
+        # Iterate through the nodes of a particular array
+        nodes = get_and_print_api('/'.join((data_url, array)))
+        for node in nodes:
+            # Determine if to ignore engineering streams (default true)
+            if include_eng:
+                sensors = get_and_print_api('/'.join((data_url, array, node)))
+            else:
+                sensors = [sen for sen in get_and_print_api('/'.join((data_url, array, node))) if 'ENG' not in sen]
+            # Iterate through the sensors for an array-node
+            for sensor in sensors:
+                # Iterate through all the methods for each array-node-sensor
+                methods = get_and_print_api('/'.join((data_url, array, node, sensor)))
+                for method in methods:
+                    # Iterate through all the streams for each array-node-sensor-method
+                    streams = get_and_print_api('/'.join((data_url, array, node, sensor, method)))
+                    for stream in streams:
+                        # Save into the data table
+                        data_streams = data_streams.append({
+                            'array':array,
+                            'node':node,
+                            'sensor':sensor,
+                            'method':method,
+                            'stream':stream
+                        }, ignore_index=True)
+                        
+    # Return the resulting dataframe
+    return data_streams            
 
+
+# If you don't have the table of data streams or want to download the table again, run the following code:
+
+# +
+# # Download the data streams
+# data_streams = get_cgsn_data_streams(data_url)
+# data_streams.head()
+
+# +
+# # Save the data streams
+# data_streams.to_csv('/media/andrew/Files/OOINet/data_streams.csv', index=False)
+# -
+
+# If you already have the data streams, load them into the notebook:
+
+data_streams = pd.read_csv('/media/andrew/Files/OOINet/data_streams.csv')
+data_streams.head()
+
+
+# #### Filter Data Streams
+# Next, we can filter the data streams down for only Pioneer, Endurance, Global, etc.
+
+# +
+def cgsn_mask(x):
+    if x.startswith(('CG','CP','GI','GA','GS')):
+        if 'MOAS' not in x:
+            return True
+        else:
+            return False
+    else:
+        return False
+    
+def ce_mask(x):
+    if x.startswith(('CE')):
+        if 'MOAS' not in x:
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
+# -
+
+moas = data_streams['array'].apply(lambda x: True if 'MOAS' in x else False)
+cgsn = data_streams['array'].apply(lambda x: cgsn_mask(x) )
+ce = data_streams['array'].apply(lambda x: ce_mask(x))
+
+
+# data_streams = data_streams[cgsn]
 
 # **==================================================================================================================**
 # ### Data Parameters
@@ -109,9 +182,8 @@ for array in [arr for arr in get_and_print_api(data_url) if arr.startswith(('CP'
 # +
 # Define functions for getting and filtering sensor metadata
 def get_sensor_metadata(metadata_url, username=username, token=token):
-    
-    # Parse out the reference designator from the metadata url
-    
+    """Download the metadata for a specific sensor/instrument."""
+   
     # Request and download the relevant metadata
     r = requests.get(metadata_url, auth=(username, token))
     if r.status_code == 200:
@@ -126,6 +198,7 @@ def get_sensor_metadata(metadata_url, username=username, token=token):
 
 
 def get_parameter_data_levels(metadata):
+    """Return a dictionary of the data level for each parameter id."""
     pdIds = np.unique(metadata['pdId'])
     pid_dict = {}
     for pid in pdIds:
@@ -139,9 +212,11 @@ def get_parameter_data_levels(metadata):
 
 
 def filter_parameter_ids(pdId, pid_dict):
-    # Check if pdId should be kept
+    """Filter for only science parameters (data level = 1 or 2)."""
     data_level = pid_dict.get(pdId)
     if data_level == 1:
+        return True
+    elif data_level == 2:
         return True
     else:
         return False
@@ -149,21 +224,29 @@ def filter_parameter_ids(pdId, pid_dict):
 
 # -
 
-# Load the data streams
-data_streams = pd.read_csv('Results/cgsn_data_streams.csv')
-data_streams.head(10)
+# #### Sensor Data Streams
+# Next, select the specific data streams for a given sensor, e.g. all the data streams which relate to CTDs, or DOSTAs, etc.
 
-# Select only the CTD data streams
-mask = data_streams['sensor'].apply(lambda x: True if 'CTD' in x else False)
-ctd_streams = data_streams[mask]
-ctd_streams
+sensor = 'PCO2A'
+mask = data_streams['sensor'].apply(lambda x: True if sensor in x else False)
+sensor_streams = data_streams[mask]
+sensor_streams.head()
 
-# Add in the reference designator for the selected data streams
-ctd_streams['refdes'] = ctd_streams['array'] + '-' + ctd_streams['node'] + '-' + ctd_streams['sensor']
-ctd_streams.head(10)
+# Build the reference designator for the given data streams from the array-node-sensor:
+
+sensor_streams['refdes'] = sensor_streams['array'] + '-' + sensor_streams['node'] + '-' + sensor_streams['sensor']
+
+# #### Sensor Metadata
+# Next, we want to download the metadata associated with the specific sensor we selected above. We do this by iterating through the available data streams for the sensor. First, check if we have the sensor metadata already.
+
+# Load the sensor metadata
+sensor_metadata = pd.read_csv('/media/andrew/Files/Instrument_Data/PCO2A/PCO2A_metadata.csv')
+sensor_metadata.head()
+
+# If we haven't already downloaded the sensor metadata, we can use the code block below to download that associated metadata for the given data streams:
 
 # Now get the metadata
-for refdes in np.unique(ctd_streams['refdes']):
+for refdes in np.unique(sensor_streams['refdes']):
     
     # Query the metadata for a particular refdes
     array, node, sensor = refdes.split('-', 2)
@@ -179,23 +262,204 @@ for refdes in np.unique(ctd_streams['refdes']):
     
     # Now, dynamically build a metadata dataframe for all the reference designatores
     try:
-        df = df.append(metadata)
+        sensor_metadata = sensor_metadata.append(metadata)
     except:
-        df = metadata
+        sensor_metadata = metadata
 
-df
+# Check the resulting table of metadata
+sensor_metadata.head()
 
-# Now, union with data parameters with the 
-ctd_parameters = ctd_streams.merge(df, left_on=['refdes','stream'], right_on=['refdes','stream'])
-ctd_parameters
+# Save the metadata
+sensor_metadata.to_csv('/media/andrew/Files/Instrument_Data/PCO2A/PCO2A_metadata.csv', index=False)
 
-os.listdir('Results')
+# #### Sensor Parameters
+# Next, we merge the sensor metadata table with the sensor data streams table to get a table with the parameters for each sensor data stream:
 
-ctd_parameters.to_csv('Results/CTD_parameters.csv')
+# Merge on the reference designator and stream keys
+sensor_parameters = sensor_streams.merge(sensor_metadata, left_on=['refdes','stream'], right_on=['refdes','stream'])
+sensor_parameters.head()
+
+# Save the sensor parameters
+sensor_parameters.to_csv('/media/andrew/Files/Instrument_Data/PCO2A/PCO2A_parameters.csv', index=False)
+
 
 # **====================================================================================================================**
 # ## User range
 # Next, for each array, need to calculate the mean and standard deviations for the given parameters
+
+def get_async_url(data_request_url, username, token, min_time=None, max_time=None):
+    """
+    Return the associated async url for the desired data streams.
+    """
+    # Ensure proper datetime format for the request
+    if min_time is not None:
+        min_time = pd.to_datetime(min_time).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        max_time = pd.to_datetime(max_time).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+    
+    # Build the query
+    params = {
+        'beginDT':min_time,
+        'endDT':max_time,
+    }
+    
+    # Request the download urls
+    urls = requests.get(data_request_url, auth=(username, token)).json()
+
+    # Get the async url
+    async_url = urls['allURLs'][1]
+    
+    return async_url    
+
+
+def get_netCDF_datasets(async_url):
+    """
+    Query the asynch url and return the netCDF datasets.
+    """
+    # This block of code works times the request until fufilled or the request times out (limit=10 minutes)
+    start_time = time.time()
+    check_complete = async_url + '/status.txt'
+    r = requests.get(check_complete)
+    while r.status_code != requests.codes.ok:
+        check_complete = async_url + '/status.txt'
+        r = requests.get(check_complete)
+        elapsed_time = time.time() - start_time
+        if elapsed_time > 10*60:
+            print('Request time out')
+        time.sleep(5)
+
+    # Identify the netCDF urls
+    datasets = requests.get(async_url).text
+    x = re.findall(r'href=["](.*?.nc)', datasets)
+    for i in x:
+        if i.endswith('.nc') == False:
+            x.remove(i)
+        for i in x:
+            try:
+                float(i[-4])
+            except:
+                x.remove(i)
+        datasets = [os.path.join(async_url, i) for i in x]
+        
+    return datasets
+
+
+# #### Single-data stream
+# If we want to download the datasets for a single datastream, we can use the following approach:
+
+# List the available reference designators for the sensor
+sensor_parameters['refdes'].unique()
+
+# Select a single reference designator
+refdes = 'CP01CNSM-SBD12-04-PCO2AA000'
+
+# Get the associated data streams for the given reference designator
+refdes_streams = sensor_parameters[sensor_parameters['refdes'] == refdes]
+refdes_streams
+
+# +
+# Data request url
+data_request_url = '/'.join((data_url, array, node, sensor, method, stream))
+
+# Get the asynch url for the data request url
+asynch_url = get_async_url(data_request_url, username, token)
+
+# Get the netCDF datasets from the asynch url
+datasets = get_netCDF_datasets(asynch_url)
+
+# Download the datasets and save locally
+datasets = [dset for dset in datasets if 'CTD' not in dset]
+save_dir = '/'.join((os.getcwd(), array, node, sensor, method))
+download_netCDF_datasets(datasets, save_dir)
+
+
+# -
+
+# #### Need to develop an improved method for getting the netCDF files (can't do json because only for synchronous requests)
+
+def download_netCDF_datasets(datasets, save_dir):
+    """Download the netCDF datasets for asynch"""
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir) 
+    for dset in datasets:
+        filename = wget.download(dset, out=save_dir)
+
+
+array = 'CP01CNSM'
+node = 'MFD37'
+sensor = '04-DOSTAD000'
+method = 'recovered_host'
+stream = 'dosta_abcdjm_dcl_instrument_recovered'
+
+data_request_url = '/'.join((data_url, array, node, sensor, method, stream))
+data_request_url
+
+# Next, load the netCDF files
+ds = xr.open_mfdataset(['/'.join((save_dir,))])
+
+
+# Now, want to request all of the data for a particular datastream
+def get_thredds_url(data_request_url, username, token, min_time=None, max_time=None):
+    """
+    Returns the associated thredds url for the desired dataset(s)
+    """
+    
+    # Ensure proper datetime format for the request
+    if min_time is not None:
+        min_time = pd.to_datetime(min_time).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+        max_time = pd.to_datetime(max_time).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
+    
+    # Build the query
+    params = {
+        'beginDT':min_time,
+        'endDT':max_time,
+    }
+    
+    # Request the data
+    r = requests.get(data_request_url, params=params, auth=(username, token))
+    if r.status_code == 200:
+        data_urls = r.json()
+    else:
+        print(r.reason)
+        
+    # The asynchronous data request is contained in the 'allURLs' key,
+    # in which we want to find the url to the thredds server
+    for d in data_urls['allURLs']:
+        if 'thredds' in d:
+            thredds_url = d
+    
+    return thredds_url
+
+
+ds = xr.open_mfdataset(['/'.join((save_dir, x)) for x in os.listdir(save_dir)])
+
+ds.to_netcdf('dosta_practice.nc')
+
+
+def get_netcdf_datasets(thredds_url):
+    import time
+    datasets = []
+    counter = 0
+    tds_url = 'https://opendap.oceanobservatories.org/thredds/dodsC/'
+    while not datasets:
+        datasets = requests.get(thredds_url).text
+        urls = re.findall(r'href=[\'"]?([^\'" >]+)', datasets)
+        x = re.findall(r'(ooi/.*?.nc)', datasets)
+        for i in x:
+            if i.endswith('.nc') == False:
+                x.remove(i)
+        for i in x:
+            try:
+                float(i[-4])
+            except:
+                x.remove(i)
+        datasets = [os.path.join(tds_url, i) for i in x]
+        if not datasets: 
+            print(f'Re-requesting data: {counter}')
+            counter = counter + 1
+            time.sleep(30)
+    return datasets
+
+
 
 # Load in the relevant data parameters
 qartod = pd.read_csv('Results/CTD_parameters.csv')
@@ -278,64 +542,6 @@ data_streams
 result = pd.read_csv("Results/Global_user_range.csv")
 result.drop(columns='Unnamed: 0', inplace=True)
 result
-
-
-# Now, want to request all of the data for a particular datastream
-def get_thredds_url(data_request_url, username, token, min_time=None, max_time=None):
-    """
-    Returns the associated thredds url for the desired dataset(s)
-    """
-    
-    # Ensure proper datetime format for the request
-    if min_time is not None:
-        min_time = pd.to_datetime(min_time).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-        max_time = pd.to_datetime(max_time).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-    
-    # Build the query
-    params = {
-        'beginDT':min_time,
-        'endDT':max_time,
-    }
-    
-    # Request the data
-    r = requests.get(data_request_url, params=params, auth=(username, token))
-    if r.status_code == 200:
-        data_urls = r.json()
-    else:
-        print(r.reason)
-        
-    # The asynchronous data request is contained in the 'allURLs' key,
-    # in which we want to find the url to the thredds server
-    for d in data_urls['allURLs']:
-        if 'thredds' in d:
-            thredds_url = d
-    
-    return thredds_url
-
-
-def get_netcdf_datasets(thredds_url):
-    import time
-    datasets = []
-    counter = 0
-    tds_url = 'https://opendap.oceanobservatories.org/thredds/dodsC/'
-    while not datasets:
-        datasets = requests.get(thredds_url).text
-        urls = re.findall(r'href=[\'"]?([^\'" >]+)', datasets)
-        x = re.findall(r'(ooi/.*?.nc)', datasets)
-        for i in x:
-            if i.endswith('.nc') == False:
-                x.remove(i)
-        for i in x:
-            try:
-                float(i[-4])
-            except:
-                x.remove(i)
-        datasets = [os.path.join(tds_url, i) for i in x]
-        if not datasets: 
-            print(f'Re-requesting data: {counter}')
-            counter = counter + 1
-            time.sleep(30)
-    return datasets
 
 
 def load_netcdf_datasets(datasets):
