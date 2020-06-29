@@ -5,8 +5,8 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.3.3
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -60,9 +60,9 @@ glider_directory = '/media/andrew/OS/Users/areed/Documents/Project_Files/Records
 
 # If the predeployment file is not listed in asset tracking, need to hunt through all the predeployment files for the possible candidates:
 
-sn = '1091'
+sn = '1089'
 
-cal_file = '3305-00527-00061-A_SN_NTR-1089_Recovery_NUTNR-B.zip'
+cal_file = '3305-00527-00064-A_SN_NTR-1088_Recovery_NUTNR-B.zip'
 
 # Initialize the parser:
 
@@ -77,7 +77,10 @@ for file in os.listdir(doc_directory):
 
 #filepath = cal_directory + '/' + cal_file
 #filepath = doc_directory +'/' + zfile
-filepath = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Metadata_Review/Review/temp/'+'3305-00527-00062-A'+'.zip'
+filepath = '/home/andrew/Downloads/'+'3305-00527-00065-A.zip'
+#filepath = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Metadata_Review/Review/temp/'+'3305-00527-00062-A'+'.zip'
+
+sn='1103'
 
 nutnr = NUTNRCalibration('CGINS-NUTNRB-'+sn.zfill(5))
 

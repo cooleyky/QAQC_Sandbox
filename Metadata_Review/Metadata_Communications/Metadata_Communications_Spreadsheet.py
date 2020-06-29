@@ -5,8 +5,8 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.3.3
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -1051,7 +1051,6 @@ downstream_metadata
 
 # With the downstream sensors identified, I now need to requery OOINet to get the **Instrument**, **Asset ID**, and **Serial Number** of the downstream sensor.
 
-# +
 for i in range(len(downstream_metadata)):
     # Request the calibration data for the specific reference data for all deployments
     refdes = downstream_metadata['RefDes'].iloc[i]
@@ -1074,7 +1073,6 @@ for i in range(len(downstream_metadata)):
         pass
     
     # FIN!
-# -
 
 downstream_metadata.head(10)
 

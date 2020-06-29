@@ -5,8 +5,8 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.3.3
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -34,17 +34,20 @@ from Parsers.CTDBPCalibration import CTDBPCalibration
 # 2. Your local asset-management repository has the requisite **csv** file to check
 # 3. You have downloaded the **source** of the csv file
 
-csv_dir = '/home/andrew/Documents/OOI-CGSN/asset-management/calibration/CTDBPE/'
-source_dir = '/media/andrew/OS/Users/areed/Documents/Project_Files/Records/Instrument_Records/CTDBP/CTDBP_Results/'
+github_file = 'calibration/CTDBPD/CGINS-CTDBPD-50110__20200116.csv'
+
+#csv_dir = '/home/andrew/Documents/OOI-CGSN/asset-management/calibration/CTDBPC/'
+source_dir = '/home/andrew/Downloads/'
+#source_dir = '/media/andrew/OS/Users/areed/Documents/Project_Files/Records/Instrument_Records/CTDBP/CTDBP_Results/'
 
 for file in os.listdir(source_dir):
     if '3305-00102-00217' in file and not file.endswith('.docx'):
         source_file = file
         print(file)
 
-ctdbp = CTDBPCalibration('CGINS-CTDBPE-50004')
+ctdbp = CTDBPCalibration('CGINS-CTDBPD-50110')
 
-ctdbp.load_qct(source_dir+source_file)
+ctdbp.load_qct('/home/andrew/Downloads/3305-00102-00247-A.txt')
 
 ctdbp.source
 
@@ -70,13 +73,15 @@ ctdbp.serial.lstrip('0')
 
 # **====================================================================================================================**
 
-file = 'CGINS-CTDBPE-50004__20190618.csv'
+file = 'CGINS-CTDBPD-50110__20200116.csv'
 
 source_csv = pd.read_csv(temp_directory+'/'+file)
 
 source_csv
 
-am_csv = pd.read_csv(csv_dir+file)
+am_dir = '/home/andrew/Documents/OOI-CGSN/asset-management/'
+
+am_csv = pd.read_csv(am_dir + 'calibration/CTDBPD/CGINS-CTDBPD-50110__20200116.csv')
 
 am_csv
 

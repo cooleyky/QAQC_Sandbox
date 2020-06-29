@@ -5,8 +5,8 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.3.3
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -46,21 +46,12 @@ from Parsers.SPKIRCalibration import SPKIRCalibration
 # 2. Your local asset-management repository has the requisite **csv** file to check
 # 3. You have downloaded the **source** of the csv file
 
-csv_dir = '/home/andrew/Documents/OOI-CGSN/asset-management/calibration/SPKIRB/'
-source_dir = '/media/andrew/OS/Users/areed/Documents/Project_Files/Records/Instrument_Records/SPKIR/SPKIR_Cal/'
-
-# Find the pull request csv:
-
-sn = '289'
-for file in os.listdir(csv_dir):
-    if sn in file:
-        print(file)
-
-pr_csv_name = 'CGINS-SPKIRB-00289__20190709.csv'
+am_file = '/home/andrew/Documents/OOI-CGSN/asset-management/calibration/SPKIRB/CGINS-SPKIRB-00300__20200128.csv'
+source_file = '/home/andrew/Downloads/SPKIR-B_OCR-507_SN_300_Calibration_Files_2020-01-28.zip'
 
 # Read in the pull request csv into a pandas dataframe:
 
-pr_csv = pd.read_csv(csv_dir+pr_csv_name)
+pr_csv = pd.read_csv(am_file)
 pr_csv
 
 # **====================================================================================================================**
@@ -69,23 +60,13 @@ pr_csv
 # 1. Instrument UID: This is needed to initialize the OPTAA parser
 # 2. Source file: This is the full path to the source file. Zip files are acceptable input.
 
-# Find the source file:
-
-for file in os.listdir(source_dir):
-    if sn in file:
-        print(file)
-
-source_file = 'SPKIR-B_OCR-507_SN_289_Calibration_Files_2019-07-09.zip'
-
-source_dir
-
 # Initialize the parser with the UID:
 
-spkir = SPKIRCalibration('CGINS-SPKIRB-00289')
+spkir = SPKIRCalibration('CGINS-SPKIRB-00300')
 
 # Read in the calibration coefficients from the source file:
 
-spkir.load_cal(source_dir+source_file)
+spkir.load_cal(source_file)
 
 # Write the csv to a temporary local folder:
 
@@ -107,7 +88,7 @@ spkir.uid, spkir.serial, spkir.date
 # ### Compare the data sets
 # With the data parsed from the source file and the csv from the pull request, we can now directly compare the between the two datasets and identify any inconsistencies or errors.
 
-source_csv = pd.read_csv(temp_directory+'/'+'CGINS-SPKIRB-00289__20190709.csv')
+source_csv = pd.read_csv(temp_directory+'/'+'CGINS-SPKIRB-00300__20200128.csv')
 source_csv
 
 pr_csv
