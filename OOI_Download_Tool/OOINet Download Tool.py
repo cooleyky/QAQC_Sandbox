@@ -21,48 +21,23 @@ import yaml
 import pandas as pd
 import numpy as np
 import xarray as xr
+
+
+import yaml
 import warnings
 warnings.filterwarnings("ignore")
-
 # Import user info for accessing UFrame
 userinfo = yaml.load(open('../user_info.yaml'))
 username = userinfo['apiname']
 token = userinfo['apikey']
 
+# What libraries are needed for OOINet object?
+import re
+import requests
+import datetime
+import numpy as np
+import pandas as pd
 
-# +
-# Define some useful functions for working with the UFrame api
-def get_api(url):
-    r = requests.get(url, auth=(username, token))
-    data = r.json()
-    return data
-
-# Function to make an API request and print the results
-def get_and_print_api(url):
-    r = requests.get(url, auth=(username, token))
-    data = r.json()
-    #for d in data:
-     #   print(d)
-    
-    # Return the data
-    return data
-        
-# Specify some functions to convert timestamps
-ntp_epoch = datetime.datetime(1900, 1, 1)
-unix_epoch = datetime.datetime(1970, 1, 1)
-ntp_delta = (unix_epoch - ntp_epoch).total_seconds()
-
-def ntp_seconds_to_datetime(ntp_seconds):
-    return datetime.datetime.utcfromtimestamp(ntp_seconds - ntp_delta).replace(microsecond=0)
-  
-def convert_time(ms):
-    if ms is None:
-        return None
-    else:
-        return datetime.datetime.utcfromtimestamp(ms/1000)
-
-
-# -
 
 class OOINet():
     
@@ -79,14 +54,71 @@ class OOINet():
             'preload': 'https://ooinet.oceanobservatories.org/api/m2m/12575/parameter',
             'cal': 'https://ooinet.oceanobservatories.org/api/m2m/12587/asset/cal'
         }
+
         
-    def get_api(self, url):
+    def _get_api(self, url):
+        """Requests the given url from OOINet."""
         r = requests.get(url, auth=(self.username, self.token))
         data = r.json()
         return data
     
     
-    # Get the THREDDS url 
+    def _ntp_seconds_to_datetime(self, ntp_seconds):
+        """Convert OOINet timestamps to unix-convertable timestamps."""
+        # Specify some constant needed for timestamp conversions
+        ntp_epoch = datetime.datetime(1900, 1, 1)
+        unix_epoch = datetime.datetime(1970, 1, 1)
+        ntp_delta = (unix_epoch - ntp_epoch).total_seconds()
+        
+        return datetime.datetime.utcfromtimestamp(ntp_seconds - ntp_delta)
+    
+    
+    def _convert_time(self, ms):
+        if ms is None:
+            return None
+        else:
+            return datetime.datetime.utcfromtimestamp(ms/1000)
+    
+    
+    def get_datasets(self, search_url, datasets = pd.DataFrame()):
+        """Search OOINet for available datasets for a url"""
+
+        inst = re.search("[0-9]{2}-[023A-Z]{6}[0-9]{3}", search_url)
+
+        # This means you are at the end-point
+        if inst is not None:
+            # Get the reference designator info
+            array, node, instrument = search_url.split("/")[-3:]
+            refdes = "-".join((array, node, instrument))
+
+            # Get the available deployments
+            deploy_url = "/".join((self.urls["deploy"], array, node, instrument))
+            deployments = self._get_api(deploy_url)
+
+            # Put the data into a dictionary
+            info = pd.DataFrame(data=np.array([[array, node, instrument, refdes, search_url, deployments]]),
+                               columns=["array","node","instrument","refdes","url","deployments"])
+            # add the dictionary to the dataframe
+            datasets = datasets.append(info, ignore_index=True)
+
+        else:
+            endpoints = self._get_api(search_url)
+
+            while len(endpoints) > 0:
+
+                # Get one endpoint
+                new_endpoint = endpoints.pop()
+
+                # Build the new request url
+                new_search_url = "/".join((search_url, new_endpoint))
+
+                # Get the datasets for the new given endpoint
+                datasets = search_datasets(new_search_url, datasets)
+
+        # Once recursion is done, return the datasets
+        return datasets
+    
+    
     def get_thredds_url(self, data_request_url, **kwargs):
         """
         Return the url for the THREDDS server for the desired dataset(s).
@@ -188,7 +220,7 @@ class OOINet():
             metadata_request_url = "/".join((metadata_request_url, "metadata"))
 
             # Get the metadata information
-            ooi_mdata = self.get_api(metadata_request_url)
+            ooi_mdata = self._get_api(metadata_request_url)
 
             # Parse the metadata
             metadata = self.parse_metadata(ooi_mdata)
@@ -201,7 +233,7 @@ class OOINet():
 
         else:
             # Get a list of the available url end-points
-            new_endpoints = self.get_api(metadata_request_url)
+            new_endpoints = self._get_api(metadata_request_url)
 
             while len(new_endpoints) > 0:
                 # Get an endpoint from the list
@@ -217,11 +249,24 @@ class OOINet():
         return results
     
     
-    def get_vocab(self, vocab_url, results):
-        """Return the OOI vocabulary for a given url endpoint"""
-    
+    def get_vocab(self, vocab_url, results=pd.DataFrame()):
+        """
+        Return the OOI vocabulary for a given url endpoint. The vocab results contains
+        info about the reference designator, names of the 
+        
+        Args:
+            vocab_url (str): Properly constructed deployment url for OOINet
+                vocab request with array, node, and instrument defined.
+            results (pandas.DataFrame): Optional. Useful for recursive applications
+                for gathering deployment information for multiple instruments.
+                
+        Returns:
+            results (pandas.DataFrame): A table of the vocab information for the given
+                instrument (reference designator). T
+        
+        """
         # First, request the data from the url
-        data = self.get_api(vocab_url)
+        data = self._get_api(vocab_url)
 
         # Now, we'll move through the list
         while len(data) > 0:
@@ -238,9 +283,78 @@ class OOINet():
                 new_vocab_url = "/".join((vocab_url, x))
 
                 # And iterate again
-                results = get_vocab(new_vocab_url, results)
+                results = self.get_vocab(new_vocab_url, results)
 
         # Finally, return the results
+        return results
+    
+    
+    def get_deployment_info(self, deploy_url, deploy_num="-1", results=pd.DataFrame()):
+        """
+        Get the deployment information for an instrument. Defaults to all deployments
+        for a given instrument (reference designator) unless one is supplied.
+
+        Args:
+            deploy_url (str): The properly constructed deployment url for OOINet with
+                array, node, and instrument defined.
+            deploy_num (str): Optional to include a specific deployment number. Otherwise
+                defaults to -1 which is all deployments.
+            results (pandas.DataFrame): Optional. Useful for recursive applications for
+                gathering deployment information for multiple instruments.
+
+        Returns:
+            results (pandas.DataFrame): A table of the deployment information for the 
+                given instrument (reference designator) with deployment number, deployed
+                water depth, latitude, longitude, start of deployment, end of deployment,
+                and cruise IDs for the deployment and recovery.
+
+        """
+
+        # First, add the deployment number (which defaults to all deployments)
+        deploy_url = "/".join((deploy_url, str(deploy_num)))
+
+        # Next, get the deployments from the deploy url. The API returns a list
+        # of dictionary objects with the deployment data.
+        deployments = self._get_api(deploy_url)
+
+        # Now, iterate over the deployment list and get the associated data for
+        # each individual deployment
+        while len(deployments) > 0:
+            # Get a single deployment
+            deployment = deployments.pop()
+
+            # Process the dictionary data
+            # Deployment Number
+            deploymentNumber = deployment.get("deploymentNumber")
+
+            # Location info
+            location = deployment.get("location")
+            depth, lat, lon = location["depth"], location["latitude"], location["longitude"]
+
+            # Start and end times of the deployments
+            startTime = self._convert_time(deployment.get("eventStartTime"))
+            stopTime = self._convert_time(deployment.get("eventStopTime"))
+
+            # Cruise IDs of the deployment and recover cruises
+            deployCruiseInfo = deployment.get("deployCruiseInfo")
+            recoverCruiseInfo = deployment.get("recoverCruiseInfo")
+            if deployCruiseInfo is not None:
+                deployID = deployCruiseInfo["uniqueCruiseIdentifier"]
+            else:
+                deployID = None
+            if recoverCruiseInfo is not None:
+                recoverID = recoverCruiseInfo["uniqueCruiseIdentifier"]
+            else:
+                recoverID = None
+
+            # Put the data into a pandas dataframe
+            data = np.array([[deploymentNumber, lat, lon, depth, startTime, stopTime, deployID, recoverID]])
+            columns = ["deploymentNumber","latitude","longitude","depth","deployStart","deployEnd","deployCruise","recoverCruise"]
+            df = pd.DataFrame(data=data, columns=columns)
+
+            # 
+            results = results.append(df)
+
         return results
 
 OOINet = OOINet(username, token)
@@ -268,41 +382,86 @@ check_complete = thredds_url + "/status"
 # ## Stream Metadata
 # For a given stream/data request url, what is the available metadata?
 
-metadata_request_url = "/".join((OOINet.urls["data"], "CP01CNSM", "MFD37"))
-metadata = OOINet.get_instrument_metadata(metadata_request_url, results)
-metadata
+metadata_request_url = "/".join((OOINet.urls["data"], "CP01CNSM", "MFD37", "03-CTDBPD000"))
+OOINet.get_instrument_metadata(metadata_request_url)
 
-metadata["refdes"].unique()
+
+# ---
+# ## Search Function
+# Create a search function for hunting for datasets on a particular array, particular array/node, etc. First, for a given input of array or array-node, return a list of available instruments
+
+def learn_kwargs(datasets=pd.DataFrame(), **kwargs):
+    # Construct a url
+    base_url = OOINet.urls["data"]
+    
+    for key, value in kwargs.items():
+        print(f'{key}: {value}')
+
+
+learn_kwargs(array="CP01CNSM", node="MFD37", instrument="03-CTDBPD000")
+
+
+def search_datasets(search_url, datasets = pd.DataFrame()):
+    """Search OOINet for available datasets"""
+    
+    inst = re.search("[0-9]{2}-[023A-Z]{6}[0-9]{3}", search_url)
+    
+    # This means you are at the end-point
+    if inst is not None:
+        # Get the reference designator info
+        array, node, instrument = search_url.split("/")[-3:]
+        refdes = "-".join((array, node, instrument))
+        
+        # Get the available deployments
+        deploy_url = "/".join((OOINet.urls["deploy"], array, node, instrument))
+        deployments = OOINet.get_api(deploy_url)
+        
+        # Put the data into a dictionary
+        info = pd.DataFrame(data=np.array([[array, node, instrument, refdes, search_url, deployments]]),
+                           columns=["array","node","instrument","refdes","url","deployments"])
+        # add the dictionary to the dataframe
+        datasets = datasets.append(info, ignore_index=True)
+    
+    else:
+        endpoints = OOINet.get_api(search_url)
+    
+        while len(endpoints) > 0:
+        
+            # Get one endpoint
+            new_endpoint = endpoints.pop()
+        
+            # Build the new request url
+            new_search_url = "/".join((search_url, new_endpoint))
+        
+            # Get the datasets for the new given endpoint
+            datasets = search_datasets(new_search_url, datasets)
+        
+    # Once recursion is done, return the datasets
+    return datasets
+
+
+search_url = "/".join((OOINet.urls["data"], "CP01CNSM", "RID27"))
+datasets = search_datasets(search_url)
+datasets
+
+
+
+
 
 # ---
 # ## Deployment Information
-# Develop a function to return the deployment information for a particular reference designator
+# For a given reference designator, we want to be able to get the associated deployment information. This includes critical data for building specific requests, including **deploymentNumber**, **latitude**, **longitude**, **depth**, **deployStart**, **deployEnd**, **deployCruise**. 
 #
 
 deploy_url = "/".join((OOINet.urls["deploy"], "CP01CNSM", "MFD37", "03-CTDBPD000"))
-
-deployments = OOINet.get_api(deploy_url)
-deployments
-
-# +
-# Get the associated deployment times
-# -
-
-pd.DataFrame().from_dict(results[0])
-
-results[0].get("eventStartTime")
-
-pd.DataFrame(results)
+OOINet.get_deployment_info(deploy_url)
 
 # ---
 # ## Vocab Info
 # Want to develop a tool which will get the available vocabulary for either all instruments on an array, all instruments on a node, or for a specific instrument.
 
-results = pd.DataFrame()
 vocab_url = "/".join((OOINet.urls["vocab"], "CP01CNSM", "MFD37"))
-vocab = OOINet.get_vocab(vocab_url, results)
-
-vocab["refdes"].unique()
+OOINet.get_vocab(vocab_url)
 
 
 
