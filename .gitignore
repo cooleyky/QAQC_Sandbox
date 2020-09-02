@@ -29,6 +29,9 @@ Metadata_Review/**/*.xlsx
 Metadata_Review/**/*.sqlite
 Metadata_Review/Metadata_Communications/Output/
 
+# Oxygen Optode Data
+Oxygen_Optode_Calibrations/Barometer/*
+
 # QARTOD Directory Files
 QARTOD/*.csv
 QARTOD/Results/
