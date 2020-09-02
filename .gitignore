@@ -4,6 +4,7 @@ __pycache__/
 *.so
 *.nc
 .ipynb_checkpoints/
+*.ipynb
 
 # Ship Data Directory Files
 Ship_data/**/*.ipynb
