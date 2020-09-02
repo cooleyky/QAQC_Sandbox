@@ -13,10 +13,12 @@
 #     name: python3
 # ---
 
-# # Stream Identifier for QARTOD Parameters
+# # Data Stream Identifier for QARTOD Parameters
+#
+# #### Author: Andrew Reed
 #
 # ### Purpose
-# The purpose of this notebook is to identify the necessary UFrame data streams and data parameters from CGSN-controlled instruments for quality control by QARTOD algorithms. 
+# The purpose of this notebook is to identify the necessary UFrame data streams and data parameters from CGSN-controlled instruments for quality control by QARTOD algorithms.
 
 # Import libraries
 import os, shutil, sys, time, re, requests, csv, datetime, pytz
@@ -29,6 +31,13 @@ import xarray as xr
 import warnings
 warnings.filterwarnings("ignore")
 
+# Import the OOINet M2M tool
+sys.path.append("/home/andrew/Documents/OOI-CGSN/ooinet/ooinet/")
+from m2m import M2M
+
+import matplotlib.pyplot as plt
+# %matplotlib inline
+
 # #### Set OOINet API access
 # In order access and download data from OOINet, need to have an OOINet api username and access token. Those can be found on your profile after logging in to OOINet. Your username and access token should NOT be stored in this notebook/python script (for security). It should be stored in a yaml file, kept in the same directory, named user_info.yaml.
 
@@ -37,54 +46,213 @@ userinfo = yaml.load(open('../user_info.yaml'))
 username = userinfo['apiname']
 token = userinfo['apikey']
 
-# #### Define relevant UFrame api urls paths
+# #### Initialize the connection to OOINet
 
-data_url = 'https://ooinet.oceanobservatories.org/api/m2m/12576/sensor/inv'
-anno_url = 'https://ooinet.oceanobservatories.org/api/m2m/12580/anno/find'
-vocab_url = 'https://ooinet.oceanobservatories.org/api/m2m/12586/vocab/inv'
-asset_url = 'https://ooinet.oceanobservatories.org/api/m2m/12587'
-deploy_url = asset_url + '/events/deployment/query'
-preload_url = 'https://ooinet.oceanobservatories.org/api/m2m/12575/parameter'
-cal_url = asset_url + '/asset/cal'
+OOI = M2M(username, token)
+
+# ---
+# ## Identify Data Streams
+# This section is necessary to identify all of the data stream associated with a specific instrument. This can be done by querying UFrame and iteratively walking through all of the API endpoints. The results are saved into a csv file so this step doesn't have to be repeated each time.
+
+datasets = OOI.search_datasets(instrument="PCO2W")
+
+datasets = datasets.sort_values(by="array")
+datasets
+
+# Save the datasets locally so this process doesn't have to be re-run
+datasets.to_csv("Results/pco2w_datasets.csv", index=False)
+
+# ---
+# ## Download Data
+# Once all of the data streams have been identified, we want to start downloading data. 
+#
+# ### Single Reference Designator
+# First, we can step through the process of 
+#
+#
+# #### Select a single reference designator
+# The reference designator acts as a key for an instrument located at a specific location. 
+
+refdes = "CP01CNSM-MFD35-05-PCO2WB000"
+
+# #### Sensor Vocab
+# The vocab provides information about the instrument model and type, its location (with descriptive names), depth, and manufacturer. 
+
+vocab = OOI.get_vocab(refdes)
+vocab
+
+# #### Sensor Data Streams
+# Next, select the specific data streams for the given reference designator:
+
+datastreams = OOI.get_datastreams(refdes)
+datastreams
+
+# #### Sensor Deployments
+# Download the deployment information for the selected reference designator:
+
+deployments = OOI.get_deployments(refdes)
+deployments
+
+# #### Sensor Metadata
+#
+# Next, we want to download the metadata associated with the specific reference we selected above:
+
+metadata = OOI.get_metadata(refdes)
+metadata
+
+# #### Sensor Parameters
+# Each instrument returns multiple parameters containing a variety of low-level instrument output and metadata. However, we are interested in science-relevant parameters for calculating the relevant QARTOD test limits. We can identify the science parameters based on the preload database, which designates the science parameters with a "data level" of L1 or L2. 
+#
+# Consequently, we through several steps to identify the relevant parameters. First, we query the preload database with the relevant metadata for a reference designator. Then, we filter the metadata for the science-relevant data streams. 
+
+data_levels = OOI.get_parameter_data_levels(metadata)
+
+mask = metadata["pdId"].apply(lambda x: OOI.filter_parameter_ids(x, data_levels))
+metadata = metadata[mask]
+metadata
+
+# #### Download Data
+# To access data, there are two applicable methods. The first is to download the data and save the netCDF files locally. The second is to access and process the files remotely on the THREDDS server, without having to download the data. 
+
+# Select a method and stream to download
+method = "recovered_inst"
+stream = "pco2w_abc_instrument_blank"
+
+# Get the THREDDS url for the reference designator/method/stream
+thredds_url = OOI.get_thredds_url(refdes, method, stream)
+thredds_url
+
+# Get the catalog
+catalog = OOI.get_thredds_catalog(thredds_url)
+catalog
+
+# Identify the netCDF files from the THREDDS catalog
+netCDF_files = OOI.parse_catalog(catalog, exclude=["gps", "CTD"])
+netCDF_files
+
+# ##### Download datasets
+# The first option is to download the relevant netCDF files to a local directory. This approach allows for the data to be access more quickly in the future, without having to go through the steps of requesting and waiting for the netCDF files to be generated on the THREDDS server. The downside is that there are terabytes of data on OOINet and downloading and saving all of the data, particularly when more is being generated every day, is not a particularly efficient approach.
+
+# Specify the local directory to save the data to
+save_dir = f"/media/andrew/Files/Instrument_Data/PCO2W/{refdes}/{method}/{stream}"
+
+# ##### Remote access
+# The second option is to remotely access the netCDF files directly on the THREDDS server. This approach avoids having to download all of the data to a local directory. However, it is not persistent across time.
+
+pco2w = OOI.(a)
+
+
+
+
+
+# ## Process Data
+# With the 
+
+blank_files = os.listdir(save_dir)
+blank_files = ["/".join((save_dir, f)) for f in os.listdir(save_dir)]
+
+with xr.open_mfdataset(blank_files, concat_dim="obs") as blanks:
+    blanks = blanks.swap_dims({"obs":"time"})
+    blanks = blanks.sortby("time")
+
+blanks
+
+# +
+fig, ax = plt.subplots(figsize=(12,8))
+
+for spectrum in np.unique(blanks.spectrum):
+    ax.plot(blanks.time, blanks.where(blanks.spectrum==spectrum, drop=True).blank_light_measurements,
+            linestyle="", marker=".", label=str(spectrum))
+ax.grid()
+ax.legend()
+ax.set_ylabel("Counts")
+
+fig.autofmt_xdate()
 
 
 # +
-# Define some useful functions for working with the UFrame api
-def get_api(url):
-    r = requests.get(url, auth=(username, token))
-    data = r.json()
-    return data
+fig, (ax0, ax1) = plt.subplots(nrows=2, ncols=1, figsize=(12,8))
 
-# Function to make an API request and print the results
-def get_and_print_api(url):
-    r = requests.get(url, auth=(username, token))
-    data = r.json()
-    #for d in data:
-     #   print(d)
-    
-    # Return the data
-    return data
-        
-# Specify some functions to convert timestamps
-ntp_epoch = datetime.datetime(1900, 1, 1)
-unix_epoch = datetime.datetime(1970, 1, 1)
-ntp_delta = (unix_epoch - ntp_epoch).total_seconds()
+ax0.plot(ds.time, ds.absorbance_blank_434/16384, linestyle="", marker=".", label="Blank 434")
+ax0.plot(ds.time, ds.absorbance_blank_620/16384, linestyle="", marker=".", label="Blank 620")
+ax0.legend()
+ax0.set_ylabel("Blank Counts")
+ax0.grid()
+ax0.set_title(ds.attrs["id"])
 
-def ntp_seconds_to_datetime(ntp_seconds):
-    return datetime.datetime.utcfromtimestamp(ntp_seconds - ntp_delta).replace(microsecond=0)
-  
-def convert_time(ms):
-    if ms is None:
-        return None
-    else:
-        return datetime.datetime.utcfromtimestamp(ms/1000)
+ax1.plot(ds.time, ds.absorbance_ratio_434, linestyle="", marker=".", label="Blank Ratio 434")
+ax1.plot(ds.time, ds.absorbance_ratio_620, linestyle="", marker=".", label="Blank Ratio 620")
+ax1.legend()
+ax1.grid()
 
+# +
+# Plot the data to take a look at it
+fig, ax = plt.subplots(figsize=(12,8))
 
+for depNum in np.unique(ds.deployment):
+    ax.plot(ds.where(ds.deployment==depNum).time, ds.where(ds.deployment==depNum).pco2_seawater,
+           linestyle="", marker=".", label=str(depNum))
+ax.set_ylabel(ds.pco2_seawater.attrs["long_name"], fontsize=12)
+ax.set_xlabel(ds.time.attrs["long_name"], fontsize=12)
+ax.set_ylim(0, 2500)
+ax.grid()
+ax.set_title(ds.attrs["id"])
+ax.legend()
+
+fig.autofmt_xdate()
 # -
 
-# **==================================================================================================================**
-# ### Data Streams
-# First, we want to identify all of the instruments and their associated data streams located on the CGSN arrays. This involves querying UFrame and walking-through all the reference designators, then saving the **array, node, sensor, method, and stream** information in a table.
+blanks.blank_light_measurements
+
+# Drop the extra spectrums because they aren't needed
+ds = ds.where(ds.spectrum==0, drop=True)
+ds
+
+pco2w
+
+parameters = metadata["particleKey"].unique()
+parameters
+
+gross_range_mask
+
+# Pass a gross_range mask of (200, 2000) to it first
+gross_range_mask = (ds.pco2_seawater.values >= 200) & (ds.pco2_seawater.values <= 2000)
+gross_range_mask = gross_range_mask.reshape(-1)
+
+# Next, calculate the user range based on the gross range filtered data
+np.nanmean(ds.pco2w_thermistor_temperature.values), np.nanstd(ds.pco2w_thermistor_temperature.values)
+
+ds.pco2_seawater[gross_range_mask].values.std()
+
+# ---
+# ## Process the Data
+# This is for processing the data
+
+ds
+
+fig, ax = plt.subplots(figsize=(12,8))
+
+# +
+fig, ax = plt.subplots(figsize=(12,8))
+
+for spectrum in np.unique(ds.spectrum):
+    ax.plot(ds.time, ds.where(ds.spectrum==spectrum, drop=True).light_measurements, linestyle="", marker=".", label=str(spectrum))
+ax.legend()
+ax.grid()
+
+# +
+fig, ax = plt.subplots(figsize=(12,8))
+
+ax.plot(ds.time, ds.where(ds.spectrum==0, drop=True).light_measurements, linestyle="", marker=".")
+ax.plot(ds.time, ds.where(ds.spectrum==8, drop=True).light_measurements, linestyle="", marker=".")
+ax.grid()
+# -
+
+ds.where(ds.spectrum==0, drop=True).light_measurements.shape
+
+ds.light_measurements.shape
+
+
 
 def get_cgsn_data_streams(data_url, include_eng=True):
     """Query and download all CGSN data streams into a table."""
@@ -370,133 +538,9 @@ datasets = get_netCDF_datasets(asynch_url)
 datasets = [dset for dset in datasets if 'CTD' not in dset]
 save_dir = '/'.join((os.getcwd(), array, node, sensor, method))
 download_netCDF_datasets(datasets, save_dir)
-
-
 # -
 
 # #### Need to develop an improved method for getting the netCDF files (can't do json because only for synchronous requests)
-
-def download_netCDF_datasets(datasets, save_dir):
-    """Download the netCDF datasets for asynch"""
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir) 
-    for dset in datasets:
-        filename = wget.download(dset, out=save_dir)
-
-
-array = 'CP01CNSM'
-node = 'MFD37'
-sensor = '04-DOSTAD000'
-method = 'recovered_host'
-stream = 'dosta_abcdjm_dcl_instrument_recovered'
-
-data_request_url = '/'.join((data_url, array, node, sensor, method, stream))
-data_request_url
-
-# Next, load the netCDF files
-ds = xr.open_mfdataset(['/'.join((save_dir,))])
-
-
-# Now, want to request all of the data for a particular datastream
-def get_thredds_url(data_request_url, username, token, min_time=None, max_time=None):
-    """
-    Returns the associated thredds url for the desired dataset(s)
-    """
-    
-    # Ensure proper datetime format for the request
-    if min_time is not None:
-        min_time = pd.to_datetime(min_time).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-        max_time = pd.to_datetime(max_time).strftime('%Y-%m-%dT%H:%M:%S.%fZ')
-    
-    # Build the query
-    params = {
-        'beginDT':min_time,
-        'endDT':max_time,
-    }
-    
-    # Request the data
-    r = requests.get(data_request_url, params=params, auth=(username, token))
-    if r.status_code == 200:
-        data_urls = r.json()
-    else:
-        print(r.reason)
-        
-    # The asynchronous data request is contained in the 'allURLs' key,
-    # in which we want to find the url to the thredds server
-    for d in data_urls['allURLs']:
-        if 'thredds' in d:
-            thredds_url = d
-    
-    return thredds_url
-
-
-ds = xr.open_mfdataset(['/'.join((save_dir, x)) for x in os.listdir(save_dir)])
-
-ds.to_netcdf('dosta_practice.nc')
-
-
-def get_netcdf_datasets(thredds_url):
-    import time
-    datasets = []
-    counter = 0
-    tds_url = 'https://opendap.oceanobservatories.org/thredds/dodsC/'
-    while not datasets:
-        datasets = requests.get(thredds_url).text
-        urls = re.findall(r'href=[\'"]?([^\'" >]+)', datasets)
-        x = re.findall(r'(ooi/.*?.nc)', datasets)
-        for i in x:
-            if i.endswith('.nc') == False:
-                x.remove(i)
-        for i in x:
-            try:
-                float(i[-4])
-            except:
-                x.remove(i)
-        datasets = [os.path.join(tds_url, i) for i in x]
-        if not datasets: 
-            print(f'Re-requesting data: {counter}')
-            counter = counter + 1
-            time.sleep(30)
-    return datasets
-
-
-
-# Load in the relevant data parameters
-qartod = pd.read_csv('Results/CTD_parameters.csv')
-qartod.drop(columns='Unnamed: 0', inplace=True)
-qartod
-
-refdes = np.unique(qartod['refdes'])
-refdes
-
-refdes = 'CP01CNSM-RID27-03-CTDBPC000'
-subset = qartod[qartod['refdes'] == refdes]
-subset
-
-# Problem, the different data streams have different parameter keys. I don't want to accidentally ignore/miss some
-# parameter keys based on the different methods/streams.
-subset.drop_duplicates(subset=['refdes','stream','pdId'])
-
-# Remove the bad data streams in the subset
-mask = subset['method'].apply(lambda x: False if 'bad' in x else True)
-subset = subset[mask]
-subset
-
-subset2 = subset.drop_duplicates(subset=['method','stream','pdId'])
-
-pdid = 
-
-# Iterate over the methods in a heirarchy
-methods = np.unique(subset['method'])
-for m in ('inst','host','recov','tele'):
-    method = [x for x in methods if m in x]
-    if len(method) > 0:
-        break
-method = method[0]
-method
-
-stream = subset[subset['method'] == method]['stream'].unique()[0]
-stream
 
 parameters = subset[subset['stream'] == stream]['pdId'].unique()
 

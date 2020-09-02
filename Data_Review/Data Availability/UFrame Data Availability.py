@@ -19,12 +19,14 @@
 # Version: 1.0<br>
 # Date: 2019-11-21<br>
 #
+# ---
 # ### Purpose
 # This notebook seeks to answer the following questions:
 # 1. For each unique data stream returned by deployed CGSN assets - what is the data availability on a per day and per deployment basis?
 # 2. How does the data availability vary for each mooring deployed and operated by CGSN?
 # 3. How does the data availability in UFrame compare with OMS++?
 #
+# ---
 # ### Updates
 # Version: 1.1<br>
 # Date: 2019-11-26
@@ -39,6 +41,14 @@
 # Functionality to calculate the statistics for all deployments for a particular reference designator's data streams works as intended. Currently it operates using HITL execution.
 #
 # Loading the netCDF requests in a scripted loop is skipping some deployments or throwing Exceptions when loading into xarray. Not sure why, but I think its linked to the time it takes to create the datasets by OOINet. The automated piece needs further development.
+#
+# <br>
+#
+# Version 1.3<br>
+# Date: 2020-6-7
+#
+# Changed the deployment info to request it from OOINet instead of relying on the deploy sheets from GitHub. This makes the data internally consistent.
+#
 #
 #
 
@@ -56,36 +66,22 @@ from utils import *
 # **====================================================================================================================**
 # ### Deployment Information
 # To properly identify and calculate the data availability on a deployment level, need to pull in the deployment information for each array/platform. This can be ingested from the deployment sheets on an array-by-array basis. Once the deployment csvs are loaded, they are parsed to retain only the deployment number, startDateTime, and stopDateTime.
+#
+# Since we are concerned with what is available in OOINet. So, instead of pulling from the deploy sheets, I want to request the data from OOINet based upon the reference designator.
 
-for sheet in os.listdir('/home/andrew/Documents/OOI-CGSN/asset-management/deployment/'):
-    if sheet.startswith(('CP','G')) and 'MOAS' not in sheet:
-        print(sheet)
+# Load all of the deployment sheets except for the gliders/auvs (i.e. mobile assets = MOAS)
+deployment_csvs = pd.DataFrame()
+for sheet in os.listdir("/home/andrew/Documents/OOI-CGSN/asset-management/deployment"):
+    if "MOAS" not in sheet:
+        deployment_csvs = deployment_csvs.append(pd.read_csv("/".join(("/home/andrew/Documents/OOI-CGSN/asset-management/deployment",sheet))))
 
-# Import the respective mooring deploy sheet:
+# Select the instrument you are interested in
+mask = deployment_csvs["Reference Designator"].apply(lambda x: True if "PCO2W" in x else False)
+deployment_csvs = deployment_csvs[mask]
+deployment_csvs.head()
 
-deploy_info = pd.read_csv('/home/andrew/Documents/OOI-CGSN/asset-management/deployment/CP01CNSM_Deploy.csv')
-deploy_info.head()
-
-# +
-# This chunck of code identifies the start and stop times of the deployments from the associated
-# deploy csv from ooi asset management. 
-deploy_num = ()
-startDateTime = ()
-stopDateTime = ()
-for i in np.unique(deploy_info['deploymentNumber']):
-    subset = deploy_info[deploy_info['deploymentNumber'] == i]
-    t0 = np.unique(subset['startDateTime'])[0]
-    t1 = np.unique(subset['stopDateTime'])[0]
-    # Put the data into tuples
-    deploy_num = deploy_num + (i,)
-    startDateTime = startDateTime + (t0,)
-    stopDateTime = stopDateTime + (t1,)
-    
-deploy_df = pd.DataFrame(data=zip(deploy_num, startDateTime, stopDateTime),
-                         columns=['deploymentNumber','startDateTime','stopDateTime'])
-# -
-
-deploy_df
+reference_designators = sorted(deployment_csvs["Reference Designator"].unique())
+reference_designators
 
 # **====================================================================================================================**
 # ### UFrame Asset Identification
@@ -93,30 +89,27 @@ deploy_df
 # 1. Select a reference designator from the deployment info sheet
 # 2. Identify which methods and streams to download by querying the UFrame API
 
-# First, load the user info so we can query the OOI m2m api
-user_info = yaml.load(open('../../user_info.yaml'))
-username = user_info['apiname']
-token = user_info['apikey']
+# Initialize the OOINet object to connect of OOINet
+OOINet = OOINet(username, token)
 
-# Next, declare the url of ooi-net api
-url = 'https://ooinet.oceanobservatories.org/api/m2m/12576/sensor/inv'
+refdes = sorted(reference_designators)[0]
+refdes
 
-# List the available reference designators for the particular mooring deployment:
-print(deploy_info['Reference Designator'].unique())
-
-refdes = 'CP01CNSM-MFD35-01-ADCPTF000'
-array, node, sensor = refdes.split('-',2)
-array, node, sensor
+refdes_deployments = OOINet.get_deployments(refdes)
+refdes_deployments
 
 # Specify which instrument we want and see the method options
-methods = get_and_print_api('/'.join((url, array, node, sensor)), username, token)
+array, node, instrument = refdes.split("-",2)
+methods = OOINet._get_api("/".join((OOINet.urls["data"], array, node, instrument)))
+methods
 
 # Specify which method and return the available streams
-method = 'telemetered'
-streams = get_and_print_api('/'.join((url, array, node, sensor, method)), username, token)
+method = 'recovered_inst'
+streams = OOINet._get_api("/".join((OOINet.urls["data"], array, node, instrument, method)))
+streams
 
 # Specify the stream name
-stream = 'adcp_velocity_earth'
+stream = 'pco2w_abc_instrument'
 
 # **====================================================================================================================**
 # ### Sensor Metadata Information & \_FillValues
@@ -124,9 +117,9 @@ stream = 'adcp_velocity_earth'
 #
 # Once the sensor metadata is loaded, we can parse the metadata to identify the \_FillValue for each variable in the dataset.
 
-# Get the sensor metadata
-metadata = get_sensor_metadata('/'.join((url, array, node, sensor, 'metadata')), username, token)
-metadata.head()
+# Get the metadata associated with the specific reference designator
+refdes_metadata = OOINet.get_metadata(refdes)
+refdes_metadata.head()
 
 # **====================================================================================================================**
 # ### Request Data
@@ -136,10 +129,8 @@ metadata.head()
 #     * This may take awhile for OOI to assemble all of the datasets. You can rerun the get_netcdf_datasets as many times as you want until the list of datasets stops growing.
 # 3. Filter out datasets for associated but unwanted datasets such as engineering and CTD datasets.
 
-data_request_url = '/'.join((url, array, node, sensor, method, stream))
-data_request_url
-
-thredds_url = get_thredds_url(data_request_url, None, None, username, token)
+# Get the thredds url
+thredds_url = OOINet.get_thredds_url(refdes, method, stream)
 thredds_url
 
 # Find and return the netCDF datasets from the thredds url
