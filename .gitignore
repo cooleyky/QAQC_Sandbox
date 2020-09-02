@@ -55,6 +55,8 @@ github_user.yaml
 *.asc
 *.bat
 *.cnv
+*.doc[x]
+*.odt
 *.hex
 *.XMLCON
 *.cal
