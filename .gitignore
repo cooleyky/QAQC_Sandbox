@@ -37,6 +37,7 @@ Oxygen_Optode_Calibrations/Barometer/*
 QARTOD/*.csv
 QARTOD/Results/
 QARTOD/**/*.ipynb
+QARTOD/Testing/ioos_qc_py2*
 
 # I want to ignore the Data files which are already version controlled in Alfresco or Vault
 Data/
@@ -60,6 +61,7 @@ github_user.yaml
 *.bat
 *.cnv
 *.doc[x]
+*.nc
 *.odt
 *.ods
 *.hex
