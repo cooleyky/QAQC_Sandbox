@@ -27,6 +27,7 @@ import re
 from scipy import signal
 import pandas as pd
 import numpy as np
+import json
 import matplotlib.pyplot as plt
 # %matplotlib inline
 
@@ -35,7 +36,7 @@ import matplotlib.pyplot as plt
 from utils import *
 
 # ## Load Data
-# First, load in the relevant
+# First, load in the relevant optode and barometeric data. 
 #
 # #### Optode
 # We can load the optode data using the **load_optode** function. This will parse the data into a pandas dataframe with parsed timestamps.
@@ -61,57 +62,66 @@ tstart = optode["timestamp"].min()
 tstop = optode["timestamp"].max()
 tstart, tstop
 
-met_data = barometer[(barometer["timestamp"] >= tstart) & (barometer["timestamp"] <= tstop)]
-met_data.head()
+barometer = barometer[(barometer["timestamp"] >= tstart) & (barometer["timestamp"] <= tstop)]
+barometer.head()
+
+# Next, calculate the water vapor pressure from the actual barometric pressure, relative humidity, and temperature:
+
+from GasSolubities import WaterVapor
+
+WaterVapor = WaterVapor()
+
+barometer["water vapor"] = WaterVapor.RH_to_vapor_pressure(barometer["relative humidity"], barometer["temperature"], barometer["pressure"])
+barometer.head()
 
 # ## Reprocess Optode Data
-# Next, we need to apply the most recent calibration information to the oxygen optode to calculate the correct oxygen concentrations. The concentrations in the optode output may not be the most recent calibrations.
+# Next, we need to apply the most recent calibration information to the oxygen optode to calculate the correct oxygen concentrations. The concentrations in the optode output may not be the most recent calibrations. We'll use the relevant ion-functions ported into this notebook in order to achieve this. This keeps our processing as close to the OOINet processing as possible.
+#
+# First, need to import the existing calibration coefficients for the optode being calibrated:
 
+print(optode["serial number"].unique())
 
+CAL_DIR = "/home/andrew/Documents/OOI-CGSN/asset-management/calibration/DOSTAD/"
+CAL_FILE = CAL_DIR + "CGINS-DOSTAD-00507__20170821.csv"
 
+# Load the calibration file:
 
+calibration = pd.read_csv(CAL_FILE)
+calibration["value"] = calibration["value"].apply(lambda x: json.loads(x))
+calibration
 
+csv = calibration[calibration["name"] == "CC_csv"]["value"].iloc[0]
+conc_coef = calibration[calibration["name"] == "CC_conc_coef"]["value"].iloc[0]
 
-
-# ## Plot data
-# With the data loaded, the first step is to plot the data in order to check that (1) the data was parsed correctly and (2) the data matches the lab log. Below we plot the 
-
-# +
-fig, ax = plt.subplots(figsize=(12,8))
-
-l1 = ax.plot(optode["timestamp"], optode["oxygen concentration"], linestyle="", marker=".", color="tab:blue", label="Oxygen")
-ax.set_ylabel("Oxygen Concentration", fontsize=12)
-ax.set_xlabel("Time", fontsize=12)
-ax.grid("x")
-
-ax1 = ax.twinx()
-l2 = ax1.plot(optode["timestamp"], optode["temperature"], linestyle="", marker=".", color="tab:red", label="Temp")
-ax1.set_ylabel("Optode Temperature", fontsize=12)
-
-lns = l1 + l2
-labs = [l.get_label() for l in lns]
-ax.legend(lns, labs, loc="center right")
-
-fig.autofmt_xdate()
-# -
-
-
+DO = do2_SVU(optode["calibrated phase"], optode["temperature"], csv, [0, 1])
 
 # +
-def f(x,A,t,mu,sigma):
-    y1 = A*np.exp(-x/t)
-    y2 = A*np.exp(-0.5*(x-mu)**2/sigma**2)
-    return signal.convolve(y1,y2,'same')/ sum(y2)
+fig, ax = plt.subplots(figsize=(16,8))
 
-x = np.arange(-10,10,0.01)
+ax = plt.plot(optode["timestamp"], optode["oxygen concentration"], linestyle="", marker=".", color="tab:blue")
+ax = plt.plot(optode["timestamp"], DO, linestyle="", marker=".", color="tab:green")
+
+ax2 = plt.twinx()
+ax2 = plt.plot(optode["timestamp"], optode["temperature"], linestyle="", marker=".", color="tab:red")
 # -
 
-from scipy import optimize
+# ### Calculate the solutilities
 
-t = np.arange(0,1000,1)
+from GasSolubities import O2sol
 
-O2 = np.ones(t.shape)
-O2[300:701] = 10
+O2sol()
+
+
+
+# #### Temperature normalization
+#
+# Next, we need to normalize for changes or variation in temperature
+
+
+
+
+
+
 
 dO2 = O2 - O2[0]
 
@@ -279,5 +289,7 @@ ax1.plot(df.index, df["oxygen saturation"], linestyle="", marker=".", color="tab
 fig.autofmt_xdate()
 
 # -
+import gsw
 
 
+gsw.
