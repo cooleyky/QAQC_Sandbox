@@ -7,6 +7,10 @@ __pycache__/
 *.ipynb
 *.asv
 
+# Ignore Documents, Data Files, and other results
+QARTOD/**/data/*
+QARTOD/**/results/*
+
 # Ship Data Directory Files
 Ship_data/**/*.ipynb
 Ship_data/**/*.csv
