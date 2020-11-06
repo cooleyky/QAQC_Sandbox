@@ -10,6 +10,12 @@ __pycache__/
 # Ignore Documents, Data Files, and other results
 QARTOD/**/data/*
 QARTOD/**/results/*
+QARTOD/**/documents/*
+QARTOD/**/figures/*
+Data_Review/**/data/*
+Data_Review/**/results/*
+Data_Review/**/documents/*
+Data_Review/**/figures/*
 
 # Ship Data Directory Files
 Ship_data/**/*.ipynb
