@@ -16,6 +16,10 @@ Data_Review/**/data/*
 Data_Review/**/results/*
 Data_Review/**/documents/*
 Data_Review/**/figures/*
+Instrument_Review/**/data/*
+Instrument_Review/**/results/*
+Instrument_Review/**/documents/*
+Instrument_Review/**/figures/*
 
 # Ship Data Directory Files
 Ship_data/**/*.ipynb
