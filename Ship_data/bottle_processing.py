@@ -6,8 +6,8 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.5.2
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -39,276 +39,474 @@
 import os, sys, re
 import pandas as pd
 import numpy as np
+import datetime
+import pytz
+import warnings
 
 sbe_name_map = pd.read_excel('/media/andrew/OS/Users/areed/Documents/OOI-CGSN/QAQC_Sandbox/Reference_Files/seabird_ctd_name_map.xlsx')
 
 sbe_name_map.head()
 
-# **========================================================================================================================**
-# Declare the directory paths to where the relevant information is stored:
+column_order = pd.read_excel("/media/andrew/Files/Water_Sampling/column_order.xlsx")
+column_order = column_order.columns
 
-basepath = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Ship_data/'
+Summary = pd.DataFrame(columns=column_order)
+Summary
 
-os.listdir(basepath+'Pioneer')
+# ---
+# Set the directory paths to where the relevant information is stored:
 
-basepath = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Ship_data/'
-array = 'Pioneer/'
-cruise =   'Pioneer-07_AR-08_2016-09-27/'
+basepath = "/media/andrew/Files/Water_Sampling/"
+array = 'Coastal_Pioneer_Array/'
 
-sorted(os.listdir(basepath+array+cruise))
+# List the cruises:
 
-water = 'Water Sampling/'
-ctd = 'ctd/'
-leg = 'Leg 2 (ar08b)/'
+for cruise in sorted(os.listdir(basepath + array)):
+    print(cruise)
 
-sorted(os.listdir(basepath+array+cruise+water))
+cruise = "Pioneer-04_AT27_2015-04-28" + "/" + "Ship_Data/"
 
-sample_dir = basepath + array + cruise + leg + ctd
-water_dir = basepath + array + cruise + water
-log_path = water_dir + 'Pioneer-07_AR-08B_CTD_Sampling_Log.xlsx'
-chl_path = water_dir + ''
-dic_path = water_dir + ''
-nutrients_path = water_dir + 'Pioneer-07_AR-08_Nutrients_Sample_Data_2019-11-12_ver_1-00.xlsx'
-salts_and_o2_path = water_dir + 'Pioneer-07_AR-08B_Oxygen_Salinity_Sample_Data/'
+# List the legs and water sampling directories:
 
+for leg in sorted(os.listdir(basepath + array + cruise)):
+    print(leg)
 
-# **===================================================================================================================**
+water = "Water Sampling/"
+# ctd = "ctd/"
+ctd = "Leg_1/" + "ctd/"
 
-# Parse the data for the start_time
-def parse_header(header):
-    """
-    Parse the header of bottle (.btl) files to get critical information
-    for the summary spreadsheet.
-    
-    Args:
-        header - an object containing the header of the bottle file as a list of
-            strings, split at the newline.
-    Returns:
-        hdr - a dictionary object containing the start_time, filename, latitude,
-            longitude, and cruise id.
-    """
-    hdr = {}
-    for line in header:
-        if 'nmea utc' in line.lower():
-            start_time = pd.to_datetime(re.split('= |\[',line)[1])
-            hdr.update({'Start Time [UTC]':start_time.strftime('%Y-%m-%dT%H:%M:%SZ')})
-        elif 'filename' in line.lower():
-            hex_name = re.split('=',line)[1].strip()
-            hdr.update({'Filename':hex_name})
-        elif 'nmea latitude' in line.lower():
-            start_lat = re.split('=',line)[1].strip()
-            hdr.update({'Start Latitude [degrees]':start_lat})
-        elif 'nmea longitude' in line.lower():
-            start_lon = re.split('=',line)[1].strip()
-            hdr.update({'Start Longitude [degrees]':start_lon})
-        elif 'cruise id' in line.lower():
-            cruise_id = re.split(':',line)[1].strip()
-            hdr.update({'Cruise':cruise_id})
-        else:
-            pass
-    
-    return hdr
+# List the CTD bottle data:
+
+for bottle in sorted(os.listdir(basepath + array + cruise + ctd)):
+    if "CTD" in bottle:
+        print(bottle)
+
+# #### Load Bottle Data
+
+BTL_DIR = basepath + array + cruise
 
 
-# Get the path to the ctd-bottle data, load it, and parse it:
 
-# Now write a function to autopopulate the bottle summary sample sheet
-files = [x for x in os.listdir(sample_dir) if '.btl' in x]
-for filename in files:
-    filepath = os.path.abspath(sample_dir+filename)
-    
-    # Load the raw content into memory
-    with open(filepath) as file:
-        content = file.readlines()
-    content = [x.strip() for x in content]
-    
-    # Now parse the file content
-    header = []
-    columns = []
-    data = []
-    for line in content:
-        if line.startswith('*') or line.startswith('#'):
-            header.append(line)
-        else:
-            try:
-                float(line[0])
-                data.append(line)
-            except:
-                columns.append(line)
-                
-    # Parse the header
-    hdr = parse_header(header)
-    
-    # Parse the column identifiers
-    column_dict = {}
-    for line in columns:
-        for i,x in enumerate(line.split()):
-            try:
-                column_dict[i] = column_dict[i] + ' ' + x
-            except:
-                column_dict.update({i:x})
-                
-    #Parse the bottle data based on the column header locations
-    data_dict = {x:[] for x in column_dict.keys()}
+for file in sorted(os.listdir(basepath + array)):
+    print(file)
 
-    for line in data:
-        if line.endswith('(avg)'):
-            values = list(filter(None,re.split('  |\t', line) ) )
-            for i,x in enumerate(values):
-                data_dict[i].append(x)
-        elif line.endswith('(sdev)'):
-            values = list(filter(None,re.split('  |\t', line) ) )
-            data_dict[1].append(values[0])
-        else:
-            pass
-    
-    # Join the date and time for each measurement into a single item
-    data_dict[1] = [' '.join(item) for item in zip(data_dict[1][::2],data_dict[1][1::2])]
-    
-    # With the parsed data and column names, match up the data and column
-    # based on the location
-    results = {}
-    for key,item in column_dict.items():
-        values = data_dict[key]
-        results.update({item:values})
-        
-    # Put the results into a dataframe
-    df = pd.DataFrame.from_dict(results)
-
-    # Now add the parsed info from the header files into the dataframe
-    for key,item in hdr.items():
-        df[key] = item
-        
-    # Get the cast number
-    cast = filename[filename.index('.')-3:filename.index('.')]
-    df['Cast'] = str(cast).zfill(3)
-    
-    # Add the header info back in
-    for key in hdr.keys():
-        df[key] = hdr[key]
-        
-    # Generate a filename for the summary file
-    outname = filename.split('.')[0] + '.sum'
-    
-    # Save the results
-    df.to_csv(sample_dir+outname)
-
-# Now, for each "summary" file, load and append to each other
-df = pd.DataFrame()
-for file in os.listdir(sample_dir):
-    if '.sum' in file:
-        df = df.append(pd.read_csv(sample_dir+file))
-    else:
-        pass
-
-# Rename the column title using the sbe_name_mapping 
-for colname in list(df.columns.values):
-    try:
-        fullname = list(sbe_name_map[sbe_name_map['Short Name'].apply(lambda x: str(x).lower() == colname.lower()) == True]['Full Name'])[0]
-        df.rename({colname:fullname},axis='columns',inplace=True)
-    except:
-        pass
-
-
-# **========================================================================================================================**
-# ### Process the Discrete Salinity and Oxygen Data
-# Next, I process the discrete salinity and oxygen sample data so that it is consistently named and ready to be merged with the existing data sets.
+for file in sorted(os.listdir(basepath+array+cruise+water)):
+    if "nut" in file.lower():
+        print(file)
 
 # +
-def clean_sal_files(dirpath):
+# Set the BTL data directory
+BTL_DIR = basepath + array + cruise + ctd
 
-    # Run check if files are held in excel format or csvs
-    csv_flag = any(files.endswith('.SAL') for files in os.listdir(dirpath))
-    if csv_flag:
-        for filename in os.listdir(dirpath):
-            sample = []
-            salinity = []
-            if filename.endswith('.SAL'):
-                with open(dirpath+filename) as file:
-                    data = file.readlines()
-                    for ind1,line in enumerate(data):
-                        if ind1 == 0:
-                            strs = data[0].replace('"','').split(',')
-                            cruisename = strs[0]
-                            station = strs[1]
-                            cast = strs[2]
-                            case = strs[8]
-                        elif int(line.split()[0]) == 0:
-                            pass
-                        else:
-                            strs = line.split()
-                            sample.append(strs[0])
-                            salinity.append(strs[2])
-                
-                    # Generate a pandas dataframe to populate data
-                    data_dict = {'Cruise':cruisename,'Station':station,'Cast':cast,'Case':case,'Sample ID':sample,'Salinity [psu]':salinity}
-                    df = pd.DataFrame.from_dict(data_dict)
-                    df.to_csv(file.name.replace('.','')+'.csv')
-            else:
-                pass
-    
-    else:
-        # If the files are already in excel spreadsheets, they've been cleaned into a
-        # logical tabular format
+# Set the salinity and oxygen directory paths
+SAL_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN222_Salinity_Sampling_Data_2014-10-03.xlsx"
+OXY_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN222_Oxygen_Sampling_Data_2014-10-03.xlsx"
+
+# Set the chlorophyll, DIC, and nutrients files
+LOG_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN-222_CTD_Sampling_Log_2015-10-29_ver_1-00.xlsx"
+CHL_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN-222_Chlorophyll_Sample_Data_2020-03-30_ver_1-01.xlsx"
+DIC_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN-222_DIC_Sample_Data_2019-06-19_ver_1-00.xlsx"
+NUT_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN-222_Nutrients_Sample_Data_2019-06-24_ver_1-00.xlsx"
+# -
+
+# ---
+# ## BTL Data
+# First, load in the bottle data from the CTD casts. This data should already have been processed using the SeaBird Processing software to produce the relevant .btl files.
+
+from bottle_utils import Cast
+
+# Iterate through the directory where the bottle files are stored, parsing them into a single dataframe:
+
+# +
+Bottles = pd.DataFrame()
+
+for file in os.listdir(BTL_DIR):
+    if file.endswith(".btl"):
+        # Get the cast number from the file name
+        cast_no = file[file.find(".")-3:file.find(".")]
+        try:
+            cast_no = int(cast_no)
+        except ValueError:
+            cast_no = cast_no.lstrip("0")
+        
+        # Initialize the CTD Cast object
+        cast = Cast(cast_no)
+        
+        # Parse the cast data
+        cast.parse_cast(BTL_DIR+file)
+        
+        # Add in the cast number
+        df = pd.DataFrame(cast.data)
+        
+        for key, item in cast.header.items():
+            df.insert(1, key, item)
+
+        df.insert(0, "Cast", cast.cast_number.zfill(3))
+        
+        # Save the results in a dataframe
+        Bottles = Bottles.append(df, ignore_index=True)
+        
+Bottles.head()
+# -
+
+Bottles["Date Time"] = Bottles["Date Time"].apply(lambda x: pd.to_datetime(x).strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+Bottles["Start Time [UTC]"] = Bottles["Start Time [UTC]"].apply(lambda x: pd.to_datetime(x).strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+Bottles;
+
+# +
+# Rename the column title using the sbe_name_mapping 
+for colname in list(Bottles.columns.values):
+    try:
+        fullname = list(sbe_name_map[sbe_name_map['Short Name'].apply(lambda x: str(x).lower() == colname.lower()) == True]['Full Name'])[0]
+        Bottles.rename({colname:fullname},axis='columns',inplace=True)
+    except:
         pass
     
+Bottles.head()
+# -
+Bottles["Cast"].unique()
 
-def process_sal_files(dirpath):
-    
-    # Check if the files are excel files or not
-    excel_flag = any(files.endswith('SAL.xlsx') for files in os.listdir(dirpath))
-    # Initialize a dataframe for processing the salinity files
-    df = pd.DataFrame()
-    if excel_flag:
-        for file in os.listdir(dirpath):
-            if 'SAL.xlsx' in file:
-                df = df.append(pd.read_excel(dirpath+file))
-        df.rename({'Sample':'Sample ID','Salinity':'Salinity [psu]','Niskin #':'Niskin','Case ID':'Case'}, 
-                  axis='columns',inplace=True)
-        df.dropna(inplace=True)
-        df['Station'] = df['Station'].apply(lambda x: str( int(x)).zfill(3))
-        df['Niskin'] = df['Niskin'].apply(lambda x: str( int(x)))
-        df['Sample ID'] = df['Sample ID'].apply(lambda x: str( int(x)))
-    else:
-        for file in os.listdir(dirpath):
-            if 'SAL.csv' in file:
-                df = df.append(pd.read_csv(dirpath+file))
-        df.dropna(inplace=True)
-        df['Station'] = df['Station'].apply(lambda x: str( int(x)).zfill(3))
-        df['Sample ID'] = df['Sample ID'].apply(lambda x: str( int(x)))
-        df.drop(columns=[x for x in list(df.columns.values) if 'unnamed' in x.lower()],inplace=True)
+# Save the bottle data
 
-    # Save the processed summary file for salinity
-    df.to_csv(dirpath+'SAL_Summary.csv')
+
+date = datetime.datetime.now(tz=pytz.UTC).strftime("%Y-%m-%d")
+filename = f"Pioneer-14_AR44_CTD_Bottle_Data_{date}_Ver_1-00.xlsx"
+filename
+
+Bottles.to_excel(basepath + array + cruise + water + filename, index=False)
+
+# ---
+# ## CTD Log 
+#
+# First, find the directory of where to find the CTD Log for the cruise:
+
+for file in sorted(os.listdir(basepath + array + cruise + water)):
+    if "CTD" in file:
+        print(file)
+
+# Next, set the paths to load the Log files for the cruise(s):
+
+LOG_FILE_A = basepath + array + cruise + water + "Pioneer-04_AT-27A_CTD_Sampling_Log_2020-05-11_ver_1-01.xlsx"
+LOG_FILE_B = basepath + array + cruise + water + "Pioneer-04_AT-27B_CTD_Sampling_Log_2020-05-11_ver_1-01.xlsx"
+
+Log_A = pd.read_excel(LOG_FILE_A, sheet_name="Summary")
+Log_A.head()
+
+Log_B = pd.read_excel(LOG_FILE_B, sheet_name="Summary")
+Log_B.head()
+
+# If the descriptors are in the first row, drop it:
+
+Log_A = Log_A.drop(labels=0)
+Log_B = Log_B.drop(labels=0)
+
+# Clean up the entries for the salts bottles:
+
+# +
+Log_A["Salts Bottle #"] = Log_A["Salts Bottle #"].apply(lambda x: x.replace("/",",") if type(x) == str else x)
+
+Log["Oxygen Bottle #"] = Log["Oxygen Bottle #"].apply(lambda x: x.replace("/",",") if type(x) == str else x)
+# -
+
+# Clean up headers:
+
+# +
+# Check for any carriage returns and remove
+for colname in Log.columns:
+    Log.rename(columns={colname: colname.replace("\n"," ")}, inplace=True)
     
-    
-def process_oxy_files(dirpath):
-    df = pd.DataFrame()
-    for filename in os.listdir(dirpath):
-        if 'oxy' in filename.lower() and filename.endswith('.xlsx'):
-            df = df.append(pd.read_excel(dirpath+filename)) 
-            # Rename and clean up the oxygen data to be uniform across data sets
-    df.rename({'Niskin #':'Niskin','Sample#':'Sample ID','Oxy':'Oxygen [mL/L]','Unit':'Units'},
-              axis='columns',inplace=True)
-    df.dropna(inplace=True)
-    df['Station'] = df['Station'].apply(lambda x: str( int(x)).zfill(3))
-    #df['Niskin'] = df['Niskin'].apply(lambda x: str( int(x)))
-    df['Sample ID'] = df['Sample ID'].apply(lambda x: str( int(x)))
-    df['Cruise'] = df['Cruise'].apply(lambda x: x.replace('O','0'))
-    
-    # Save the processed summary file for oxygen
-    df.to_csv(dirpath+'OXY_Summary.csv')
+# Sometimes spaces are missing before the #-symbol
+for colname in Log.columns:
+    Log.rename(columns={colname: colname.replace("#"," #")}, inplace=True)
+
+# Check for extra spaces and remove
+for colname in Log.columns:
+    Log.rename(columns={colname: colname.replace("  ", " ")}, inplace=True)
+
+# Check the results
+Log.columns
 
 
 # -
 
-# Now process the salts and oxygen data
-    # Clean the salinity
-clean_sal_files(salts_and_o2_path)
-    # Process the salinity files
-process_sal_files(salts_and_o2_path)
-    # Process the oxygen files
-process_oxy_files(salts_and_o2_path)
+# Clean up the **station-cast #** so it is uniform type
+
+def clean_station_num(x):
+    if pd.isnull(x):
+        return x
+    else:
+        x = str(x).zfill(3)
+        return x
+
+
+Log["Station-Cast #"] = Log["Station-Cast #"].apply(lambda x: clean_station_num(x))
+Log["Station-Cast #"].unique()
+
+
+# Clean up **Start Date** and **Start Time** into a single column
+
+def combine_datetime(x, y):
+    if pd.isnull(y):
+        y = "00:00:00"
+    dt = x + " " + y
+    dt = pd.to_datetime(dt)
+    return dt
+
+
+Log["Start DateTime"] = Log[["Start Date","Start Time"]].apply(lambda x: combine_datetime(x[0], x[1]), axis=1)
+
+
+# ---
+# ## Merge Log and Bottle Sampling
+
+def clean_bottle_pos(x):
+    if pd.isnull(x):
+        return x
+    else:
+        x = int(x)
+        return x
+
+
+Log["Niskin #"] = Log["Niskin #"].apply(lambda x: clean_bottle_pos(x))
+Bottles["Bottle Position"] = Bottles["Bottle Position"].apply(lambda x: clean_bottle_pos(x))
+
+# ---
+# ## Salinity & Oxygen Data
+# Next, need to load the Salinity and Oxygen discrete data into dataframes. The data should be summarized in an excel sheet following the naming scheme ```<Cruise Name>_<OXY/SAL>_Summary.xlsx```.
+
+# **Salinity** <br>
+# Load the Salinity data
+
+Salinity = pd.read_excel(SAL_FILE, sheet_name="AT30-01")
+Salinity.head()
+
+# **Oxygen** <br>
+# Load the Oxygen data
+
+Oxygen = pd.read_excel(OXY_FILE, sheet_name="AT30-01")
+Oxygen.head()
+
+# ---
+# ## Nutrients Data
+# Sometimes the nutrient data needs to be 
+
+Nutrients = pd.read_excel(NUT_FILE, sheet_name="Summary", header=2)
+Nutrients
+
+# Get the Niskin and Cast Numbers based on the Sample-ID
+
+Nuts_keys = Log[["Station-Cast #", "Niskin #", "Nitrate Bottle 1"]].dropna().set_index(keys="Nitrate Bottle 1")
+Nutrients = Nutrients.set_index(keys="Sample ID")
+Nutrients = Nutrients.merge(Nuts_keys, left_index=True, right_index=True).reset_index().drop(columns=["Sample ID"])
+Nutrients
+
+# ---
+# ## Chlorophyll Data
+
+Chlorophyll = pd.read_excel(CHL_FILE)
+
+Chlorophyll.columns
+
+# Get only the relevant Chlorophyll data
+columns = ["Cast", "Niskin", "Chl ug_per_L", "Phaeo ug_per_L", "Comments"]
+Chlorophyll = Chlorophyll[columns]
+Chlorophyll.head()
+
+# ## DIC
+
+DIC = pd.read_excel(DIC_FILE, header=1)
+
+DIC.columns
+
+columns = ["CAST_NO", "NISKIN_NO", 'DIC_UMOL_KG', 'DIC_FLAG_W', 'TA_UMOL_KG', 'TA_FLAG_W', 'PH_TOT_MEA', 'TMP_PH_DEG_C', 'PH_FLAG_W']
+DIC = DIC[columns]
+DIC.head()
+
+# ## Union of Casts and Niskins
+#
+# First, want to get the combination of all Casts and Niskin Bottle #s for the cruise. 
+
+# +
+# First, get the casts and niskin numbers
+bot = Bottles[["Cast","Bottle Position"]]
+bot.rename(columns={"Cast": "Station", "Bottle Position": "Niskin/Bottle Position"}, inplace=True)
+log = Log[["Station-Cast #", "Niskin #"]]
+log.rename(columns={"Station-Cast #": "Station", "Niskin #":"Niskin/Bottle Position"}, inplace=True)
+
+# Concatentate the casts and bottles
+casts = bot.append(log, ignore_index=True)
+
+# Group the results by casts and get the unique Niskin bottle numbers
+casts = casts.groupby(by="Station").apply(np.unique)
+casts.name = "Niskin/Bottle Position"
+
+# Expand the unique cast-niskin combinations
+casts_niskins = pd.DataFrame(casts).explode(column="Niskin/Bottle Position").reset_index()
+
+# Drop NaNs from the Niskin/Bottle Position
+casts_niskins.dropna(subset=["Niskin/Bottle Position"], inplace=True)
+casts_niskins
+# -
+
+# ## Summary Spreadsheet
+
+# ### 1: Initialize the Summary Spreadsheet
+
+Summary = pd.DataFrame(columns=column_order)
+Summary.head()
+
+# ### 2: Add in the Cast Data
+
+Summary = Summary.append(casts_niskins, ignore_index=True)
+Summary.head()
+
+# ### 3: Add Log Metadata
+# Next, need to add in the metaata from the CTD Log. This includes the following columns: <br>
+#
+#     | Target Station | Start Latitude | Start Longitude | Start DateTime | Bottom Depth [m] |
+#     | -------------- | -------------- | --------------- | -------------- | ---------------- |
+#     | (str)          | (str)          | (str)           | (DateTime)     | (int)            |
+#
+
+metadata_columns = ["Station-Cast #","Target Station", "Start Latitude", "Start Longitude", "Start DateTime", "Bottom Depth [m]"]
+
+metadata = Log[metadata_columns]
+metadata = metadata.groupby(by="Station-Cast #").agg(np.unique)
+metadata = metadata.reset_index()
+metadata
+
+Summary = Summary.merge(metadata, how="left", left_on="Station", right_on="Station-Cast #")
+
+Summary["Target Asset"] = Summary["Target Asset"].combine_first(Summary["Target Station"])
+Summary["Start Latitude [degrees]"] = Summary["Start Latitude [degrees]"].combine_first(Summary["Start Latitude"])
+Summary["Start Longitude [degrees]"] = Summary["Start Longitude [degrees]"].combine_first(Summary["Start Longitude"])
+Summary["Start Time [UTC]"] = Summary["Start Time [UTC]"].combine_first(Summary["Start DateTime"])
+Summary["Bottom Depth at Start Position [m]"] = Summary["Bottom Depth at Start Position [m]"].combine_first(Summary["Bottom Depth [m]"])
+
+# Drop the extra columns from the merged data
+
+Summary.drop(columns=metadata_columns, inplace=True)
+Summary.head()
+
+# ### 4: Add Oxygen and Salinity Data
+
+Oxygen["Station ID"] = Oxygen["Station ID"].apply(lambda x: str(x).zfill(3))
+Oxygen.head()
+
+# +
+Summary_keys = ["Station","Niskin/Bottle Position"]
+Oxygen_keys = ["Station ID", "Niskin ID"]
+
+Summary = Summary.merge(Oxygen, how="left", left_on=Summary_keys, right_on=Oxygen_keys)
+# -
+
+Summary["Discrete Oxygen [mL/L]"] = Summary["Oxygen [mL/L]"]
+
+# Drop the oxygen columns
+
+Summary.drop(columns=Oxygen.columns, inplace=True)
+
+# Salinity
+
+Salinity["Station ID"] = Salinity["Station ID"].apply(lambda x: str(x).zfill(3))
+Salinity.head()
+
+# +
+Summary_keys = ["Station","Niskin/Bottle Position"]
+Salinity_keys = ["Station ID", "Niskin ID"]
+
+Summary = Summary.merge(Salinity, how="left", left_on=Summary_keys, right_on=Salinity_keys)
+# -
+
+Summary["Discrete Salinity [psu]"] = Summary["Salinity [psu]"]
+
+Summary.drop(columns=Salinity.columns, inplace=True)
+
+# ## Add Chlorophyll Data
+
+Chlorophyll["Cast"] = Chlorophyll["Cast"].apply(lambda x: str(x).zfill(3))
+Chlorophyll.rename(columns={"Cast":"Cast_y"}, inplace=True)
+
+Chlorophyll_keys = ["Cast_y", "Niskin"]
+
+Summary = Summary.merge(Chlorophyll, how="left", left_on=Summary_keys, right_on=Chlorophyll_keys)
+Summary
+
+Summary["Discrete Chlorophyll [ug/L]"] = Summary["Chl ug_per_L"]
+Summary["Discrete Phaeopigment [ug/L]"] = Summary["Phaeo ug_per_L"]
+Summary["Chlorophyll Comments"] = Summary["Comments"]
+Summary.drop(columns=Chlorophyll.columns, inplace=True)
+
+# ## Merge the CTD Data
+# Next, we want to merge the CTD onto the Station/Casts
+
+# +
+Summary_keys = ["Station", "Niskin/Bottle Position"]
+Bottles_keys = ["BOT: Cast", "BOT: Bottle Position"]
+
+# Merge the Summary and CTD Bottle Data
+Summary = Summary.merge(Bottles, how="left", left_on=Summary_keys, right_on=Bottles_keys)
+
+# Drop the Bottle Cast and Bottle Position Headers
+Summary.drop(columns=["BOT: Bottle Position"], inplace=True)
+Summary.head()
+# -
+
+# ## Merge the LOG Data
+
+# +
+Summary_keys = ["Station", "Niskin/Bottle Position"]
+Log_keys = ["LOG: Station-Cast #", "LOG: Niskin #"]
+
+Summary.merge(Log, how="left", left_on=Summary_keys, right_on=Log_keys)
+# -
+
+
+
+Log.columns
+
+# ### Duplicate Samples
+# Next, want to identify where there are duplicate samples for salts, oxygen, chlorophyll, and nutrients. The process is to:
+# 1. Map duplicate samples into a list
+# 2. Split the list into rows so each row has an unique entry from the list, copying all other column values
+# 3. Replace the values
+# 4. Create a new boolean column indicating the columns copied for each water property sample 
+
+# #### 1. Split
+
+fuck me
+
+# +
+# First, convert multiple entries into a list
+Log["Log: Oxygen Bottle #"] = Log["Log: Oxygen Bottle #"].apply(lambda x: x.replace(" ","").split(",") if type(x) == str else x)
+
+# Next, split the multiple samples into their own row
+Log = Log.explode("Log: Oxygen Bottle #")
+# -
+
+# #### 2. Apply
+# Now, take the oxygen data and merge it into the Water Sampling Summary Sheet based on the **Cast, Niskin, Bottle Sample ID**
+
+for colname in Oxygen:
+    Oxygen.rename(columns={colname: "Oxy: " + colname}, inplace=True)
+Oxygen
+
+Oxygen.columns
+
+pd.merge(Log, Oxygen, how="left", left_on=["Log: Station-Cast #", "Log: Niskin #", "Log: Oxygen Bottle #"], right_on=["Oxy: Station ID", "Oxy: Niskin ID", "Oxy: Sample ID"])
+
+# Merge the Data
+Log.merge(Oxygen, how="left", left_on=[["Log: Station-Cast #", "Log: Niskin #", "Log: Oxygen Bottle #"]], right_on=[["Oxy: Station ID", "Oxy: Niskin ID", "Oxy: Sample ID"]])
+
+Log[["Log: Station-Cast #", "Log: Niskin #", "Log: Oxygen Bottle #"]]
+
+Oxygen[['Oxy: Station ID', 'Oxy: Niskin ID', 'Oxy: Sample ID']]
+
+
+
+
+
+
 
 # **===================================================================================================================**
 # ### Load the Sampling Log 
@@ -349,13 +547,6 @@ columns = ['Log: Cruise ID', 'Log: Station-Cast #', 'Log: Target Asset', 'Log: S
            'Log: Chlorophyll Brown Bottle Volume', 'Log: Chlorophyll LN Tube', 'Log: Comments']
 
 log = pd.DataFrame(columns=columns)
-
-# ### Duplicate Samples
-# Next, want to identify where there are duplicate samples for salts, oxygen, chlorophyll, and nutrients. The process is to:
-# 1. Map duplicate samples into a list
-# 2. Split the list into rows so each row has an unique entry from the list, copying all other column values
-# 3. Identify which rows where copied
-# 4. Create a new boolean column indicating the columns copied for each water property sample 
 
 # Salts Duplicates:
 

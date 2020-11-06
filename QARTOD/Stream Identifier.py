@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.4.2
+#       jupytext_version: 1.5.2
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -53,45 +53,50 @@ OOI = M2M(username, token)
 # ---
 # ## Identify Data Streams
 # This section is necessary to identify all of the data stream associated with a specific instrument. This can be done by querying UFrame and iteratively walking through all of the API endpoints. The results are saved into a csv file so this step doesn't have to be repeated each time.
+#
+# First, check if the datasets have already been downloaded and saved locally:
 
-datasets = OOI.search_datasets(instrument="PCO2W")
+os.listdir("/media/andrew/Files/Instrument_Data/DOSTA/")
 
+datasets = OOI.search_datasets(instrument="DOSTA")
 datasets = datasets.sort_values(by="array")
 datasets
 
 # Save the datasets locally so this process doesn't have to be re-run
-datasets.to_csv("Results/pco2w_datasets.csv", index=False)
+datasets.to_csv("/media/andrew/Files/Instrument_Data/DOSTA/DOSTA_datasets.csv", index=False)
+
+# #### CGSN Datasets
+# With all of the datasets for the given instrument identified, want to filter for just the data from CGSN-relevant instruments on the **Coastal Pioneer (CP)**, **Global Irminger (GI)**, **Global Argentine (GA)**, **Global Station Papa (GP)**, and **Global Southern (GS)** arrays.
+
+cgsn_mask = datasets["array"].apply(lambda x: True if x.startswith(("CP", "GA", "GI", "GP", "GS")) else False)
+cgsn_datasets = datasets[cgsn_mask]
+cgsn_datasets.head()
 
 # ---
-# ## Download Data
-# Once all of the data streams have been identified, we want to start downloading data. 
-#
-# ### Single Reference Designator
-# First, we can step through the process of 
-#
-#
-# #### Select a single reference designator
-# The reference designator acts as a key for an instrument located at a specific location. 
+# ## Single Reference Designator
+# The reference designator acts as a key for an instrument located at a specific location. First, select a reference designator (refdes) to request data from OOINet.
 
-refdes = "CP01CNSM-MFD35-05-PCO2WB000"
+reference_designators = sorted(cgsn_datasets["refdes"])
+refdes = reference_designators[0]
+refdes
 
 # #### Sensor Vocab
-# The vocab provides information about the instrument model and type, its location (with descriptive names), depth, and manufacturer. 
+# The vocab provides information about the instrument model and type, its location (with descriptive names), depth, and manufacturer. Get the vocab for the given reference designator.
 
 vocab = OOI.get_vocab(refdes)
 vocab
-
-# #### Sensor Data Streams
-# Next, select the specific data streams for the given reference designator:
-
-datastreams = OOI.get_datastreams(refdes)
-datastreams
 
 # #### Sensor Deployments
 # Download the deployment information for the selected reference designator:
 
 deployments = OOI.get_deployments(refdes)
 deployments
+
+# #### Sensor Data Streams
+# Next, select the specific data streams for the given reference designator
+
+datastreams = OOI.get_datastreams(refdes)
+datastreams
 
 # #### Sensor Metadata
 #
@@ -115,8 +120,8 @@ metadata
 # To access data, there are two applicable methods. The first is to download the data and save the netCDF files locally. The second is to access and process the files remotely on the THREDDS server, without having to download the data. 
 
 # Select a method and stream to download
-method = "recovered_inst"
-stream = "pco2w_abc_instrument_blank"
+method = "recovered_host"
+stream = "dosta_abcdjm_dcl_instrument_recovered"
 
 # Get the THREDDS url for the reference designator/method/stream
 thredds_url = OOI.get_thredds_url(refdes, method, stream)
@@ -128,7 +133,9 @@ catalog
 
 # Identify the netCDF files from the THREDDS catalog
 netCDF_files = OOI.parse_catalog(catalog, exclude=["gps", "CTD"])
-netCDF_files
+for file in netCDF_files:
+    print(file)
+    print("\n")
 
 # ##### Download datasets
 # The first option is to download the relevant netCDF files to a local directory. This approach allows for the data to be access more quickly in the future, without having to go through the steps of requesting and waiting for the netCDF files to be generated on the THREDDS server. The downside is that there are terabytes of data on OOINet and downloading and saving all of the data, particularly when more is being generated every day, is not a particularly efficient approach.

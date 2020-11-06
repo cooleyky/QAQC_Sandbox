@@ -2,220 +2,257 @@ import os
 import numpy as np
 import pandas as pd
 import xarray as xr
+import re
 
 
-def calc_regression_climatology(time_series, freq=1/12, lin_trend=False):
-    """
-    Calculate a two-cycle harmonic linear regression following Ax=b.
-    
-    This is an Ordinary-Least Squares regression fit for a two-cycle harmonic
-    for OOI climatology data. 
+# +
+def reprocess_dataset(ds):
+    """Reprocess the netCDF dataset to conform to CF-standards.
 
     Parameters
     ----------
-    time_series: (numpy.array)
-        A numpy array of monthly-binned mean data to be fitted with a harmonic cycle.
-    freq: (float)
-        The frequency of the fit (default = 1/12).
-    lin_trend: (boolean)
-        Switch to determine if a linear trends should be added to the
-        climatological fit (default=False).
+    ds: (xarray.DataSet)
+        An opened xarray dataset of the netCDF file.
+
+    Returns
+    -------
+    ds: (xarray.DataSet)
+        Reprocessed xarray DataSet
+    """ 
+    # Remove the *_qartod_executed variables
+    qartod_pattern = re.compile(r"^.+_qartod_executed.+$")
+    for v in ds.variables:
+        if qartod_pattern.match(v):
+            # the shape of the QARTOD executed should compare to the provenance variable
+            if ds[v].shape[0] != ds["provenance"].shape[0]:
+                ds = ds.drop_vars(v)
+
+    # Reset the dimensions and coordinates
+    ds = ds.swap_dims({"obs": "time"})
+    ds = ds.reset_coords()
+    keys = ["obs", "id", "provenance", "driver_timestamp", "ingestion_timestamp",
+            'port_timestamp', 'preferred_timestamp']
+    for key in keys:
+        if key in ds.variables:
+            ds = ds.drop_vars(key)
+    ds = ds.sortby('time')
+
+    # clear-up some global attributes we will no longer be using
+    keys = ['DODS.strlen', 'DODS.dimName', 'DODS_EXTRA.Unlimited_Dimension',
+            '_NCProperties', 'feature_Type']
+    for key in keys:
+        if key in ds.attrs:
+            del(ds.attrs[key])
+
+    # Fix the dimension encoding
+    if ds.encoding['unlimited_dims']:
+        del ds.encoding['unlimited_dims']
+
+    # resetting cdm_data_type from Point to Station and the featureType from point to timeSeries
+    ds.attrs['cdm_data_type'] = 'Station'
+    ds.attrs['featureType'] = 'timeSeries'
+
+    # update some of the global attributes
+    ds.attrs['acknowledgement'] = 'National Science Foundation'
+    ds.attrs['comment'] = 'Data collected from the OOI M2M API and reworked for use in locally stored NetCDF files.'
+
+    return ds
+
         
-    Returns
-    -------
-    seasonal_cycle: (numpy.array)
-        A numpy array of the monthly-best fit values fitted with the OLS-regressed
-            harmonic cycle. Note this is NOT robust to significant outliers.
-    beta: (numpy.array)
-        A numpy array of the coefficients of best-fit
-    sigma: (float)
-        The standard deviation of the monthly-best fit values against the input
-            time series.    
-    """
-    # Rename some of the data variables
-    ts = time_series
-    N = len(ts)
-    t = np.arange(0, N, 1)
-    new_t = t
-    f = freq
+def load_datasets(datasets, reprocess=True, ds=None):
+    """Load and reprocess netCDF datasets recursively."""
+    while len(datasets) > 0:
 
-    # Drop NaNs from the fit
-    mask = np.isnan(ts)
-    ts = ts[mask == False]
-    t = t[mask == False]
-    N = len(t)
+        dset = datasets.pop()
+        if reprocess:
+            new_ds = xr.open_dataset(dset)
+            new_ds = reprocess_dataset(new_ds)
+        else:
+            new_ds = xr.open_dataset(dset)
+            
+        if ds is None:
+            ds = new_ds
+        else:
+            ds = xr.concat([new_ds, ds], dim="time")
 
-    # Build the linear coefficients as a stacked array (this is the matrix A)
-    if lin_trend:
+        ds = load_datasets(datasets, reprocess, ds)
+
+    return ds
+
+
+class Climatology():
+    
+    def resample(self, ds, param, period):
+        """Resample a data variable from the dataset to a desired period.
+        
+        Parameters
+        ----------
+        ds: (xarray.DataSet)
+            An xarray datasets containing the given data variable to be resampled and a
+            primary dimension of time.
+        param: (string)
+            The name of the data variable to resample from the given dataset
+        period: (string)
+            The time period (e.g. month = "M", day = "D") to resample and take the mean of
+            
+        Returns
+        -------
+        da: (xarray.DataArray)
+            An xarray DataArray with the resampled mean values for the given param
+        """
+        
+        df = ds[param].to_dataframe()
+        da = xr.DataArray(df.resample(period).mean())
+        
+        return da
+    
+    
+    def fit(self, ds, param, period="M", cycles=1, lin_trend=False):
+        """Fit the climatology
+        Parameters
+        ----------
+        ds: (xarray.DataSet)
+            An xarray datasets containing the given data variable to be fitted, with a
+            primary dimension of time.
+        param: (string)
+            The name of the data variable from the given dataset to fit
+        period: (string)
+            The time period (e.g. month = "M", day = "D") to bin the data, 
+            which will correspond to the fitted result
+        cycle: (int: 1)
+            The number of cycles per year to fit the data with
+        lin_trend: (bool: False)
+            Whether to include a monotonic linear trend in the fitted data
+        """
+                       
+        # Resample the data
+        da = self.resample(ds, param, period)
+        
+        # Calculate the frequency from the period
+        if period=="M":
+            freq=1/12
+        elif period=="D":
+            freq=1/365
+        else:
+            pass
+        
+        # Get the time series
+        time_series = da.values.reshape(-1)
+                
+       # Rename some of the data variables
+        ts = time_series
+        N = len(ts)
+        t = np.arange(0, N, 1)
+        new_t = t
+        f = freq
+
+        # Drop NaNs from the fit
+        mask = np.isnan(ts)
+        ts = ts[mask == False]
+        t = t[mask == False]
+        N = len(t)
+
         arr0 = np.ones(N)
-        arr1 = np.sin(2*np.pi*f*t)
-        arr2 = np.cos(2*np.pi*f*t)
-        arr3 = np.sin(4*np.pi*f*t)
-        arr4 = np.cos(4*np.pi*f*t)
-        x = np.stack([arr0, arr1, arr2, arr3, arr4, t])
-    else:
-        arr0 = np.ones(N)
-        arr1 = np.sin(2*np.pi*f*t)
-        arr2 = np.cos(2*np.pi*f*t)
-        arr3 = np.sin(4*np.pi*f*t)
-        arr4 = np.cos(4*np.pi*f*t)
-        x = np.stack([arr0, arr1, arr2, arr3, arr4])
-
-    # Fit the coefficients using OLS
-    beta, _, _, _ = np.linalg.lstsq(x.T, ts)
-
-    # Now fit a new timeseries
-    if lin_trend:
-        seasonal_cycle = beta[0] + beta[1]*np.sin(2*np.pi*f*new_t)
-        + beta[2]*np.cos(2*np.pi*f*new_t) + beta[3]*np.sin(4*np.pi*f*new_t)
-        + beta[4]*np.cos(4*np.pi*f*new_t) + beta[-1]*new_t
-    else:
-        seasonal_cycle = beta[0] + beta[1]*np.sin(2*np.pi*f*new_t)
-        + beta[2]*np.cos(2*np.pi*f*new_t) + beta[3]*np.sin(4*np.pi*f*new_t)
-        + beta[4]*np.cos(4*np.pi*f*new_t)
-
-    # Now calculate the standard deviation of the time series
-    sigma = np.sqrt((1/(len(ts)-1))
-                    * np.sum(np.square(ts - seasonal_cycle[mask == False])))
-
-    return seasonal_cycle, beta, sigma
-
-
-def qartod_climatology(ds):
-    """
-    Calculate the monthly QARTOD Climatology for a time series.
-
-    Parameters
-    ----------
-    ds: (xarray.dataArray)
-        An xarray data array with main dimension of time.
-
-    Returns
-    -------
-    results: (list of tuples)
-        A list of tuples in the format of
-        (numerical month, None, [lower bound, upper bound], month)
-    """
-    # Calculate the monthly means of the dataset
-    monthly = ds.resample(time="M").mean()
-
-    # Fit the regression for the monthly harmonic
-    cycle, beta, sigma = calc_regression_climatology(monthly.values)
-
-    # Calculate the monthly means, take a look at the seasonal cycle values
-    climatology = pd.Series(cycle, index=monthly.time.values)
-    climatology = climatology.groupby(climatology.index.month).mean()
-
-    # Now add the standard deviations to get the range of data
-    lower = np.round(climatology-sigma*2, decimals=2)
-    upper = np.round(climatology+sigma*2, decimals=2)
-
-    # This generates the results tuple
-    results = []
-    for month in climatology.index:
-        tup = (month, None, [lower[month], upper[month]], None)
-        results.append(tup)
-
-    return results
-
-
-def get_UFrame_fillValues(data, metadata, stream):
-    """
-    Function which returns the fill values for a particular data set
-    based on that dataset's metadata information
-
-    Args:
-        data - a dataframe which contains the data from a given sensor
-            stream
-        metadata - a dataframe which contains the metadata information
-            for the given data
-        stream - the particular instrument stream from which the data
-            was requested from
-
-    Returns:
-        fillValues - a dictionary with key:value pair of variable names
-            from the data stream : fill values
-    """
-
-    # Filter the metadata down to a particular sensor stream
-    mdf = metadata[metadata['stream'] == stream]
-
-    # Based on the variables in data, identify the associated fill values as key:value pair
-    fillValues = {}
-    for varname in data.columns:
-        fv = mdf[mdf['particleKey'] == varname]['fillValue']
-        # If nothing, default is NaN
-        if len(fv) == 0:
-            fv = np.nan
-        else:
-            fv = list(fv)[0]
-            # Empty values in numpy default to NaNs
-            if fv == 'empty':
-                fv = np.nan
+        if cycles == 1:
+            arr1 = np.sin(2*np.pi*f*t)
+            arr2 = np.cos(2*np.pi*f*t)
+            if lin_trend:
+                x = np.stack([arr0, arr1, arr2, t])
             else:
-                fv = float(fv)
-        # Update the dictionary
-        fillValues.update({
-            varname: fv
-        })
-
-    return fillValues
-
-
-# Define a function to calculate the data availability for a day
-def calc_UFrame_data_availability(subset_data, fillValues):
-    """
-    Function which calculates the data availability for a particular dataset.
-
-    Args:
-        subset_data - a pandas dataframe with time as the primary index
-        fillValues - a dictionary of key:value pairs with keys which correspond
-            to the subset_data column headers and values which correspond to the
-            associated fill values for that column
-    Returns:
-        data_availability - a dictionary with keys corresponding to the
-            subset_data column headers and values with the percent data available
-    """
-
-    # Initialize a dictionary to store results
-    data_availability = {}
-
-    for col in subset_data.columns:
-
-        # Check for NaNs in each col
-        nans = len(subset_data[subset_data[col].isnull()][col])
-
-        # Check for values with fill values
-        fv = fillValues.get(col)
-        if fv is not None:
-            if np.isnan(fv):
-                fills = 0
+                x = np.stack([arr0, arr1, arr2])
+        else:
+            arr1 = np.sin(2*np.pi*f*t)
+            arr2 = np.cos(2*np.pi*f*t)
+            arr3 = np.sin(4*np.pi*f*t)
+            arr4 = np.cos(4*np.pi*f*t)
+            if lin_trend:
+                x = np.stack([arr0, arr1, arr2, arr3, arr4, t])
             else:
-                fills = len(subset_data[subset_data[col] == fv][col])
+                x = np.stack([arr0, arr1, arr2, arr3, arr4])
+
+        # Fit the coefficients using OLS
+        beta, _, _, _ = np.linalg.lstsq(x.T, ts)
+
+        # Now fit a new timeseries with the coefficients of best fit
+        if cycles == 1:
+            if lin_trend:
+                fitted_data = beta[0] + beta[1]*np.sin(2*np.pi*f*new_t) + beta[2]*np.cos(2*np.pi*f*new_t)
+                + beta[-1]*new_t
+            else:
+                fitted_data = beta[0] + beta[1]*np.sin(2*np.pi*f*new_t) + beta[2]*np.cos(2*np.pi*f*new_t)
         else:
-            fills = 0
+            if lin_trend:
+                fitted_data = beta[0] + beta[1]*np.sin(2*np.pi*f*new_t)
+                + beta[2]*np.cos(2*np.pi*f*new_t) + beta[3]*np.sin(4*np.pi*f*new_t)
+                + beta[4]*np.cos(4*np.pi*f*new_t) + beta[-1]*new_t
+            else:
+                fitted_data = beta[0] + beta[1]*np.sin(2*np.pi*f*new_t)
+                + beta[2]*np.cos(2*np.pi*f*new_t) + beta[3]*np.sin(4*np.pi*f*new_t)
+                + beta[4]*np.cos(4*np.pi*f*new_t)
 
-        # Get the length of the whole dataframe
-        num_data = len(subset_data[col])
+        # Now calculate the standard deviation of the time series
+        sigma = np.sqrt((1/(len(ts)-1))*np.sum(np.square(ts - fitted_data[mask == False])))
+        sigma = np.round(sigma, decimals=2)
+        
+        # Reformat the fitted data into a pandas series indexed by the time and store the period information
+        fitted_data = pd.Series(data=np.round(fitted_data, decimals=2), index=da.time.values)
+        fitted_data.index.freq = period
+        
+        # Reformat
+        beta = np.round(beta, decimals=2)
+        
+        # Save the results as attributes of the object
+        self.fitted_data = fitted_data
+        self.sigma = sigma
+        self.beta = beta
+        
+        
+    def make_config(self):
+        """Function to make the config dictionary for climatology"""
 
-        # If there is no data in the time period,
-        if num_data == 0:
-            data_availability.update({
-                col: 0,
-            })
-        else:
-            # Calculate the statistics for the nans, fills, and length
-            num_bad = nans + fills
-            num_good = num_data - num_bad
-            per_good = (num_good/num_data)*100
+        config = []
 
-            # Update the dictionary with the stats for a particular variable
-            data_availability.update({
-                col: per_good
+        months = np.arange(1, 13, 1)
+
+        for month in months:
+            val = self.fitted_data[self.fitted_data.index.month == month]
+            if len(val) == 0:
+                val = np.nan
+            else:
+                val = val.mean()
+
+            # Get the min/max values
+            vmin = np.round(val-self.sigma*3, 2)
+            vmax = np.round(val+self.sigma*3, 2)
+
+            # Record the results
+            tspan = [month-1, month]
+            vspan = [vmin, vmax]
+
+            # Add in the 
+            config.append({
+                "tspan":tspan,
+                "vspan":vspan,
+                "period":"month"
             })
 
-    return data_availability
+        return config
+    
+    
+    def make_qcConfig(self):
+    
+        config = {
+            "qartod": {
+                "climatology": {
+                    "config": self.make_config()
+                }
+            }
+        }
 
+        self.qcConfig = config
+
+
+# -
 
 # Define a function to bin the time period into midnight-to-midnight days
 def time_periods(startDateTime, stopDateTime):

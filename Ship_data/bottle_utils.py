@@ -8,7 +8,7 @@ import numpy as np
 class Cast():
 
     def __init__(self, cast_number):
-        self.cast_number = cast_number
+        self.cast_number = str(cast_number)
 
     def parse_header(self, header):
         """
@@ -26,7 +26,7 @@ class Cast():
         for line in header:
             if 'nmea utc' in line.lower():
                 start_time = pd.to_datetime(re.split('= |\[', line)[1])
-                hdr.update({'Start Time [UTC]': start_time.strftime('%Y-%m-%dT%H:%M:%SZ')})
+                hdr.update({'Start Time [UTC]': start_time.strftime('%Y-%m-%d %H:%M:%S')})
             elif 'filename' in line.lower():
                 hex_name = re.split('=', line)[1].strip()
                 hdr.update({'Filename': hex_name})
@@ -118,7 +118,7 @@ class Cast():
             df[key] = item
 
         # Add in the cast number to the dataframe
-        df['Cast'] = self.cast_number.zfill(3)
+        df = df.insert(0, "Cast", self.cast_number.zfill(3))
 
         # Write to a csv file
         df.to_csv(savepath + 'Cast' + str(self.cast_number) + '.sum', index=False)
@@ -155,43 +155,80 @@ class Cast():
 
 class Salinity():
 
-    def clean_files(self, filepath):
+    def parse_SAL(self, filepath):
         """
-        Clean salinity files which are saved as ".SAL" files
-        and put into a standardized format
+        Reprocess .SAL files into the standardized format.
+        
+        Parameters
+        ----------
+        filepath: (str)
+            The full path to the .SAL file to be reprocessed.
+            
+        Returns
+        -------
+        results: (pandas.DataFrame)
+            A dataframe saved to filepath as a csv file.
         """
-        sample = []
-        salinity = []
+        
+        # Create a dictionary to store the results
+        results = {
+            "Cruise": [],
+            "Station": [],
+            "Niskin #": [],
+            "Case ID": [],
+            "Sample": [],
+            "Salinity": [],
+            "Unit": []
+        }
+        
         # Open and read in the .SAL salinity measurement file
         with open(filepath) as f:
             data = f.readlines()
+        
         # Parse the .SAL file
-        for ind1, line in enumerate(data):
+        for n, line in enumerate(data):
             # If its the first line, parse the metadata
-            if ind1 == 0:
-                strs = line.replace('"', '').split(',')
-                cruisename = strs[0]
-                station = strs[1]
-                cast = strs[2]
-                case = strs[8]
-            # If only a newline character for the line, want to pass
+            if n == 0:
+                header = line.replace('"', '').split(',')
+                cruise = header[0]
+                station = int(header[1])
+                cast = int(header[2])
+                case = header[8]
+            # If only a newline character for the line,
+            # want to pass
             elif line == '\n':
-                pass
-            # If its the end of the file, ignore the placeholders
-            elif int(line.split()[0]) == 0:
-                pass
-            # Otherwise, parse the salinity data
+                continue
             else:
-                strs = line.split()
-                sample.append(strs[0])
-                salinity.append(strs[2])
-        # Put the parsed salinity data into a dataframe
-        data_dict = {'Cruise': cruisename, 'Station': station, 'Cast': cast, 'Case ID': case,
-                     'Sample': sample, 'Salinity': salinity, 'Niskin #': None}
-        df = pd.DataFrame.from_dict(data_dict)
-        # Write the dataframe to a csv
-        df.to_csv(f.name.replace('.SAL', 'SAL.csv'), index=False)
+                values = line.split()
+                # If its the end of the file, 
+                # ignore the placeholders
+                if int(values[0]) == 0:
+                    continue
+                # Otherwise, parse the sample salinity data
+                else:
+                    sample = int(values[0])
+                    salinity = float(values[2])
+                    flag = int(values[3])
+                    
+                # Next, put the data into the dictionary
+                results["Cruise"].append(cruise)
+                results["Station"].append(station)
+                results["Niskin #"].append(np.nan)
+                results["Case ID"].append(case)
+                results["Sample"].append(sample)
+                results["Salinity"].append(salinity)
+                results["Unit"].append("psu")
 
+        # Put the parsed salinity data into a dataframe
+        results = pd.DataFrame(results)
+        
+        # Return the dataframe
+        return results
+        
+        # Write the dataframe to a csv
+        # results.to_csv(f.name.replace('.SAL', 'SAL.csv'), index=False)
+
+        
     def process_files(self, directory):
         """
         Processes the salinity files for a cruise and saves a summary
