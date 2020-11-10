@@ -7,7 +7,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.5.2
+#       jupytext_version: 1.6.0
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -57,57 +57,34 @@ Summary
 # Set the directory paths to where the relevant information is stored:
 
 basepath = "/media/andrew/Files/Water_Sampling/"
-array = 'Coastal_Pioneer_Array/'
+array = 'Global_Station_Papa_Array/'
 
 # List the cruises:
 
 for cruise in sorted(os.listdir(basepath + array)):
     print(cruise)
 
-cruise = "Pioneer-04_AT27_2015-04-28" + "/" + "Ship_Data/"
+cruise = "Station_Papa-07_SKQ201920S_2019-09-18" + "/" + "Ship_Data/"
 
 # List the legs and water sampling directories:
 
 for leg in sorted(os.listdir(basepath + array + cruise)):
     print(leg)
 
-water = "Water Sampling/"
-# ctd = "ctd/"
-ctd = "Leg_1/" + "ctd/"
+# water = "Water Sampling/"
+ctd = "ctd/raw/SKQ201920S/"
+# ctd = "at26-30/" + "ctd/"
 
 # List the CTD bottle data:
 
-for bottle in sorted(os.listdir(basepath + array + cruise + ctd)):
-    if "CTD" in bottle:
-        print(bottle)
+for file in sorted(os.listdir(basepath + array + cruise + ctd)):
+    print(file)
 
 # #### Load Bottle Data
 
-BTL_DIR = basepath + array + cruise
-
-
-
-for file in sorted(os.listdir(basepath + array)):
-    print(file)
-
-for file in sorted(os.listdir(basepath+array+cruise+water)):
-    if "nut" in file.lower():
-        print(file)
-
-# +
-# Set the BTL data directory
 BTL_DIR = basepath + array + cruise + ctd
 
-# Set the salinity and oxygen directory paths
-SAL_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN222_Salinity_Sampling_Data_2014-10-03.xlsx"
-OXY_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN222_Oxygen_Sampling_Data_2014-10-03.xlsx"
-
-# Set the chlorophyll, DIC, and nutrients files
-LOG_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN-222_CTD_Sampling_Log_2015-10-29_ver_1-00.xlsx"
-CHL_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN-222_Chlorophyll_Sample_Data_2020-03-30_ver_1-01.xlsx"
-DIC_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN-222_DIC_Sample_Data_2019-06-19_ver_1-00.xlsx"
-NUT_FILE = basepath + array + cruise + water + "Pioneer-03_Leg-1_KN-222_Nutrients_Sample_Data_2019-06-24_ver_1-00.xlsx"
-# -
+os.listdir(BTL_DIR)
 
 # ---
 # ## BTL Data
@@ -149,6 +126,10 @@ for file in os.listdir(BTL_DIR):
 Bottles.head()
 # -
 
+Bottles["Longitude"] = Bottles["Longitude"].apply(lambda x: float("-"+str(x)))
+
+Bottles["Longitude"]
+
 Bottles["Date Time"] = Bottles["Date Time"].apply(lambda x: pd.to_datetime(x).strftime("%Y-%m-%dT%H:%M:%S.000Z"))
 Bottles["Start Time [UTC]"] = Bottles["Start Time [UTC]"].apply(lambda x: pd.to_datetime(x).strftime("%Y-%m-%dT%H:%M:%S.000Z"))
 Bottles;
@@ -170,10 +151,16 @@ Bottles["Cast"].unique()
 
 
 date = datetime.datetime.now(tz=pytz.UTC).strftime("%Y-%m-%d")
-filename = f"Pioneer-14_AR44_CTD_Bottle_Data_{date}_Ver_1-00.xlsx"
+filename = f"Station_Papa-07_SKQ201920S_CTD_Bottle_Data_{date}_Ver_1-00.xlsx"
 filename
 
-Bottles.to_excel(basepath + array + cruise + water + filename, index=False)
+SAVE_PATH = basepath + array + cruise + "Water_Sampling"
+os.listdir(SAVE_PATH)
+
+SAVE_FILE = SAVE_PATH + "/" + filename
+SAVE_FILE
+
+Bottles.to_excel(SAVE_FILE, index=False)
 
 # ---
 # ## CTD Log 

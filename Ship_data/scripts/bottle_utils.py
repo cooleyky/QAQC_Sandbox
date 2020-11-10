@@ -70,11 +70,11 @@ class Cast():
         # Parse the data into the dictionary based on the column location
         for line in data:
             if line.endswith('(avg)'):
-                values = list(filter(None, re.split('  |\t', line)))
+                values = list(filter(None, re.split('  |\t| -', line)))
                 for i, x in enumerate(values):
                     self.data[i].append(x)
             elif line.endswith('(sdev)'):
-                values = list(filter(None, re.split('  |\t', line)))
+                values = list(filter(None, re.split('  |\t| -', line)))
                 self.data[1].append(values[0])
             else:
                 pass
