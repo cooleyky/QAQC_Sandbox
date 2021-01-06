@@ -34,7 +34,9 @@ Ship_data/Pioneer
 Ship_data/Southern
 
 # Data Review Directory Files
-Data_Review/Data Availability/Results/
+Data_Review/**/documents/*
+Data_Review/**/figures/*
+Data_Review/**/data/*
 Data_Review/**/*.csv
 Data_Review/**/*.ipynb
 
@@ -46,9 +48,16 @@ Metadata_Review/**/*.sqlite
 Metadata_Review/Metadata_Communications/Output/
 
 # Oxygen Optode Data
-Oxygen_Optode_Calibrations/Barometer/*
+Oxygen_Optode_Calibrations/data/*
+Oxygen_Optode_Calibrations/results/*
+
+# Preload Directory Files
+Preload/data/*
+Preload/results/*
 
 # QARTOD Directory Files
+QARTOD/**/data/*
+QARTOD/**/results/*
 QARTOD/*.csv
 QARTOD/Results/
 QARTOD/**/*.ipynb
