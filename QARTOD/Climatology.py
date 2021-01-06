@@ -1073,6 +1073,11 @@ plt.ylabel("Amplitude")
 
 
 
+
+
+
+
+
 X = list(temp_daily.index)
 y = temp_daily['ctdbp_seawater_temperature'].values
 degree = 4

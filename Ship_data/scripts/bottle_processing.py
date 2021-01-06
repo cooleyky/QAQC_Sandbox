@@ -57,14 +57,14 @@ Summary
 # Set the directory paths to where the relevant information is stored:
 
 basepath = "/media/andrew/Files/Water_Sampling/"
-array = 'Global_Station_Papa_Array/'
+array = 'Coastal_Pioneer_Array/'
 
 # List the cruises:
 
 for cruise in sorted(os.listdir(basepath + array)):
     print(cruise)
 
-cruise = "Station_Papa-07_SKQ201920S_2019-09-18" + "/" + "Ship_Data/"
+cruise = "Pioneer-12_AR34_2019-04-04" + "/" + "Ship_Data/"
 
 # List the legs and water sampling directories:
 
@@ -72,7 +72,7 @@ for leg in sorted(os.listdir(basepath + array + cruise)):
     print(leg)
 
 # water = "Water Sampling/"
-ctd = "ctd/raw/SKQ201920S/"
+ctd = "Leg_2/ctd/"
 # ctd = "at26-30/" + "ctd/"
 
 # List the CTD bottle data:
@@ -124,9 +124,27 @@ for file in os.listdir(BTL_DIR):
         Bottles = Bottles.append(df, ignore_index=True)
         
 Bottles.head()
+
+# +
+file = "ar34b022.btl"
+
+# Get the cast number from the file name
+cast_no = file[file.find(".")-3:file.find(".")]
+try:
+    cast_no = int(cast_no)
+except ValueError:
+    cast_no = cast_no.lstrip("0")
+    
+ # Initialize the CTD Cast object
+cast = Cast(cast_no)
+
+# Parse the cast data
+cast.parse_cast(BTL_DIR+file)
 # -
 
-Bottles["Longitude"] = Bottles["Longitude"].apply(lambda x: float("-"+str(x)))
+cast.data
+
+Bottles["Longitude"] = Bottles["Longitude"].apply(lambda x: float(str(x)))
 
 Bottles["Longitude"]
 
@@ -146,6 +164,8 @@ for colname in list(Bottles.columns.values):
 Bottles.head()
 # -
 Bottles["Cast"].unique()
+
+Bottles[Bottles["Cast"] == '022']
 
 # Save the bottle data
 

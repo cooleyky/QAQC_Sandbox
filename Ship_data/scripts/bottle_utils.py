@@ -26,7 +26,7 @@ class Cast():
         for line in header:
             if 'nmea utc' in line.lower():
                 start_time = pd.to_datetime(re.split('= |\[', line)[1])
-                hdr.update({'Start Time [UTC]': start_time.strftime('%Y-%m-%d %H:%M:%S')})
+                hdr.update({'Start Time [UTC]': start_time.strftime('%Y-%m-%dT%H:%M:%S.000Z')})
             elif 'filename' in line.lower():
                 hex_name = re.split('=', line)[1].strip()
                 hdr.update({'Filename': hex_name})

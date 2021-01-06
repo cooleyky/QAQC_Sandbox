@@ -192,10 +192,10 @@ class Climatology():
 
         # Now calculate the standard deviation of the time series
         sigma = np.sqrt((1/(len(ts)-1))*np.sum(np.square(ts - fitted_data[mask == False])))
-        sigma = np.round(sigma, decimals=2)
+        # sigma = np.round(sigma, decimals=2)
         
         # Reformat the fitted data into a pandas series indexed by the time and store the period information
-        fitted_data = pd.Series(data=np.round(fitted_data, decimals=2), index=da.time.values)
+        fitted_data = pd.Series(data=fitted_data, index=da.time.values)
         fitted_data.index.freq = period
         
         # Reformat
@@ -222,8 +222,8 @@ class Climatology():
                 val = val.mean()
 
             # Get the min/max values
-            vmin = np.round(val-self.sigma*3, 2)
-            vmax = np.round(val+self.sigma*3, 2)
+            vmin = np.floor((val-self.sigma*3)*100)/100
+            vmax = np.ceil((val+self.sigma*3)*100)/100
 
             # Record the results
             tspan = [month-1, month]
@@ -253,6 +253,56 @@ class Climatology():
 
 
 # -
+
+class Gross_Range():
+    
+    def __init__(self, fail_min, fail_max):
+        """Init the Gross Range with the relevant fail min/max."""
+        self.fail_min = fail_min
+        self.fail_max = fail_max
+    
+    def fit(self, ds, param, sigma=5):
+        """Fit suspect range with specified standard deviation."""
+        
+        # First, filter out data which falls outside of the fail ranges
+        ds = self.filter_fail_range(ds, param)
+        
+        # Calculate the mean and standard deviation
+        avg = np.nanmean(ds[param])
+        std = np.nanstd(ds[param])
+        
+        # Calculate the suspect range
+        suspect_min = avg-sigma*std
+        suspect_max = avg+sigma*std
+        
+        # If the suspect ranges are outside the fail ranges, set
+        # suspect ranges to the fail_ranges
+        if suspect_min < self.fail_min:
+            suspect_min = self.fail_min
+        if suspect_max > self.fail_max:
+            suspect_max = self.fail_max
+        
+        # Save the results
+        self.suspect_min = np.round(suspect_min, decimals=2)
+        self.suspect_max = np.round(suspect_max, decimals=2)
+        
+        
+    def filter_fail_range(self, ds, param):
+        
+        ds = ds.where((ds[param] < self.fail_max) & (ds[param] > self.fail_min), drop=True)
+        return ds
+    
+    def make_qcConfig(self):
+        
+        self.qcConfig = {
+            "qartod": {
+                "gross_range_test": {
+                    "suspect_span": [self.suspect_min, self.suspect_max],
+                    "fail_span": [self.fail_min, self.fail_max]
+                }
+            }
+        }
+
 
 # Define a function to bin the time period into midnight-to-midnight days
 def time_periods(startDateTime, stopDateTime):
