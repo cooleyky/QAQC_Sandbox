@@ -48,8 +48,8 @@ Metadata_Review/**/*.sqlite
 Metadata_Review/Metadata_Communications/Output/
 
 # Oxygen Optode Data
-Oxygen_Optode_Calibrations/data/*
-Oxygen_Optode_Calibrations/results/*
+Optode_Calibrations/data/*
+Optode_Calibrations/results/*
 
 # Preload Directory Files
 Preload/data/*
