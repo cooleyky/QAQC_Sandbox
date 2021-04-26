@@ -47,75 +47,56 @@ sys.path.append("/home/andrew/Documents/OOI-CGSN/ooinet/ooinet/")
 from m2m import M2M
 from phsen import PHSEN
 
+# #### Set OOINet API access
+# In order access and download data from OOINet, need to have an OOINet api username and access token. Those can be found on your profile after logging in to OOINet. Your username and access token should NOT be stored in this notebook/python script (for security). It should be stored in a yaml file, kept in the same directory, named user_info.yaml.
+
 from m2m import M2M
 
 # Import user info for connecting to OOINet via M2M
-userinfo = yaml.load(open("../../../user_info.yaml"))
+userinfo = yaml.load(open("../../../../user_info.yaml"))
 username = userinfo["apiname"]
 token = userinfo["apikey"]
 
-# Initialize the M2M tool
-OOI = M2M(username, token)
+# #### Connect to OOINet
+
+OOINet = M2M(username, token)
 
 
-def process_dataset(ds):
+# ---
+# ### Define Useful Functions
+
+def check_thredds_table(thredds_table, refdes, method, stream, parameters):
+    """Function which checks the thredds_table for if a request has been implemented before"""
     
-    # Remove the *_qartod_executed variables
-    qartod_pattern = re.compile(r"^.+_qartod_executed.+$")
-    for v in ds.variables:
-        if qartod_pattern.match(v):
-            # the shape of the QARTOD executed should compare to the provenance variable
-            if ds[v].shape[0] != ds["provenance"].shape[0]:
-                ds = ds.drop_vars(v)
-                
-    # Reset the dimensions and coordinates
-    ds = ds.swap_dims({"obs": "time"})
-    ds = ds.reset_coords()
-    keys = ["obs", "id", "provenance", "driver_timestamp", "ingestion_timestamp",
-            'port_timestamp', 'preferred_timestamp']
-    for key in keys:
-        if key in ds.variables:
-            ds = ds.drop_vars(key)
-    ds = ds.sortby('time')
-
-    # clear-up some global attributes we will no longer be using
-    keys = ['DODS.strlen', 'DODS.dimName', 'DODS_EXTRA.Unlimited_Dimension', '_NCProperties', 'feature_Type']
-    for key in keys:
-        if key in ds.attrs:
-            del(ds.attrs[key])
-            
-    # Fix the dimension encoding
-    if ds.encoding['unlimited_dims']:
-        del ds.encoding['unlimited_dims']
+    # Filter for the refdes-method-stream
+    request_history = thredds_table[(thredds_table["refdes"] == refdes) &
+                                    (thredds_table["method"] == method) & 
+                                    (thredds_table["stream"] == stream) &
+                                    (thredds_table["parameters"] == parameters)]
     
-    # resetting cdm_data_type from Point to Station and the featureType from point to timeSeries
-    ds.attrs['cdm_data_type'] = 'Station'
-    ds.attrs['featureType'] = 'timeSeries'
-
-    # update some of the global attributes
-    ds.attrs['acknowledgement'] = 'National Science Foundation'
-    ds.attrs['comment'] = 'Data collected from the OOI M2M API and reworked for use in locally stored NetCDF files.'
-
-    return ds
-
-
-def load_datasets(datasets, ds=None):
-    
-    while len(datasets) > 0:
-        
-        dset = datasets.pop()
-        new_ds = xr.open_dataset(dset)
-        new_ds = process_dataset(new_ds)
-        
-        if ds is None:
-            ds = new_ds
+    if len(request_history) == 0:
+        if parameters == "All":
+            thredds_url = OOINet.get_thredds_url(refdes, method, stream)
         else:
-            ds = xr.concat([new_ds, ds], dim="time")
-            
-        ds = load_datasets(datasets, ds)
-        
-    return ds
+            thredds_url = OOINet.get_thredds_url(refdes, method, stream, parameters=parameters)
+    
+        # Save the request to the table
+        thredds_table = thredds_table.append({
+            "refdes": refdes,
+            "method": method,
+            "stream": stream,
+            "request_date": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "thredds_url": thredds_url,
+            "parameters": parameters,
+        }, ignore_index = True)
+    else:
+        thredds_url = request_history[request_history["request_date"] == np.max(request_history["request_date"])]["thredds_url"].iloc[0]
+    
+    return thredds_table, thredds_url
 
+
+# ---
+# ## Irminger Array
 
 # ### Identify PHSEN instruments
 # Next, we want to identify the deployed PHSEN instruments. Based on the results of the PHSEN tech refresh analysis, we have identified the following sensors as having relatively robust datasets: **GI03FLMA** and **GI03FLMB**. Additionally, we include the PHSEN on the surface mooring **GI01SUMO**.
@@ -155,7 +136,9 @@ load_dir = f"/media/andrew/Files/Instrument_Data/PHSEN/{refdes}/{method}/{stream
 datasets = ["/".join((load_dir, dset)) for dset in os.listdir(load_dir)]
 
 gi01sumo41 = load_datasets(datasets)
-gi01sumo41;
+gi01sumo41
+
+gi01sumo41
 
 # #### GI01SUMO-RII11-02-PHSENE042
 
@@ -235,23 +218,12 @@ gi03flmb;
 # ### Reformat the PHSEN dataset
 # The PHSEN datasets need to be reprocessed to allow easy filtering and calculations on the instrument's blank measurements.
 
-PHSEN = PHSEN()
+gi01sumo_rii11_02_phsene041 = xr.open_dataset("../data/GI01SUMO_RII11_02_PHSENE041.nc")
+gi01sumo_rii11_02_phsene042 = xr.open_dataset("../data/GI01SUMO_RII11_02_PHSENE042.nc")
+gi03flma_ris01_04_phsenf000 = xr.open_dataset("../data/GI03FLMA_RIS01_04_PHSENF000.nc")
+gi03flmb_ris01_04_phsenf000 = xr.open_dataset("../data/GI03FLMB_RIS01_04_PHSENF000.nc")
 
-gi01sumo41 = PHSEN.phsen_instrument(gi01sumo41)
-gi01sumo41 = gi01sumo41.sortby("time")
-gi01sumo41;
-
-gi01sumo42 = PHSEN.phsen_instrument(gi01sumo42)
-gi01sumo42 = gi01sumo42.sortby("time")
-gi01sumo42;
-
-gi03flma = PHSEN.phsen_instrument(gi03flma)
-gi03flma = gi03flma.sortby("time")
-gi03flma;
-
-gi03flmb = PHSEN.phsen_instrument(gi03flmb)
-gi03flmb = gi03flmb.sortby("time")
-gi03flmb;
+gi01sumo_rii11_02_phsene041
 
 
 # # Process the Data
@@ -277,26 +249,26 @@ def blanks_mask(ds):
     return blanks_mask
 
 
-gi01sumo41_blanks = blanks_mask(gi01sumo41)
-gi01sumo42_blanks = blanks_mask(gi01sumo42)
-gi03flma_blanks = blanks_mask(gi03flma)
-gi03flmb_blanks = blanks_mask(gi03flmb)
+gi01sumo_rii11_02_phsene041_blanks = blanks_mask(gi01sumo_rii11_02_phsene041)
+gi01sumo_rii11_02_phsene042_blanks = blanks_mask(gi01sumo_rii11_02_phsene042)
+gi03flma_ris01_04_phsenf000_blanks = blanks_mask(gi03flma_ris01_04_phsenf000)
+gi03flmb_ris01_04_phsenf000_blanks = blanks_mask(gi03flmb_ris01_04_phsenf000)
 
 # #### Gross Range
 # The next filter is the gross range test on the pH values. Chris Wingard suggests that the pH values should fall between 7.4 and 8.6 pH units.
 
 # +
-gi01sumo41_gross_range = (gi01sumo41.seawater_ph > 7.4) & (gi01sumo41.seawater_ph < 8.6)
-gi01sumo41_gross_range = gi01sumo41_gross_range.values
+gi01sumo_rii11_02_phsene041_gross_range = (gi01sumo_rii11_02_phsene041.seawater_ph > 7.4) & (gi01sumo_rii11_02_phsene041.seawater_ph < 8.6)
+gi01sumo_rii11_02_phsene041_gross_range = gi01sumo_rii11_02_phsene041_gross_range.values
 
-gi01sumo42_gross_range = (gi01sumo42.seawater_ph > 7.4) & (gi01sumo42.seawater_ph < 8.6)
-gi01sumo42_gross_range = gi01sumo42_gross_range.values
+gi01sumo_rii11_02_phsene042_gross_range = (gi01sumo_rii11_02_phsene042.seawater_ph > 7.4) & (gi01sumo_rii11_02_phsene042.seawater_ph < 8.6)
+gi01sumo_rii11_02_phsene042_gross_range = gi01sumo_rii11_02_phsene042_gross_range.values
 
-gi03flma_gross_range = (gi03flma.seawater_ph > 7.4) & (gi03flma.seawater_ph < 8.6)
-gi03flma_gross_range = gi03flma_gross_range.values
+gi03flma_ris01_04_phsenf000_gross_range = (gi03flma_ris01_04_phsenf000.seawater_ph > 7.4) & (gi03flma_ris01_04_phsenf000.seawater_ph < 8.6)
+gi03flma_ris01_04_phsenf000_gross_range = gi03flma_ris01_04_phsenf000_gross_range.values
 
-gi03flmb_gross_range = (gi03flmb.seawater_ph > 7.4) & (gi03flmb.seawater_ph < 8.6)
-gi03flmb_gross_range = gi03flmb_gross_range.values
+gi03flmb_ris01_04_phsenf000_gross_range = (gi03flmb_ris01_04_phsenf000.seawater_ph > 7.4) & (gi03flmb_ris01_04_phsenf000.seawater_ph < 8.6)
+gi03flmb_ris01_04_phsenf000_gross_range = gi03flmb_ris01_04_phsenf000_gross_range.values
 
 
 # -
@@ -323,106 +295,47 @@ def noise_filter(ds, noise_min, noise_max):
     return mask
 
 
-gi01sumo41_noise = noise_filter(gi01sumo41, -0.04, 0.04)
-gi01sumo42_noise = noise_filter(gi01sumo42, -0.04, 0.04)
-gi03flma_noise = noise_filter(gi03flma, -0.04, 0.04)
-gi03flmb_noise = noise_filter(gi03flmb, -0.04, 0.04)
+gi01sumo_rii11_02_phsene041_noise = noise_filter(gi01sumo_rii11_02_phsene041, -0.04, 0.04)
+gi01sumo_rii11_02_phsene042_noise = noise_filter(gi01sumo_rii11_02_phsene042, -0.04, 0.04)
+gi03flma_ris01_04_phsenf000_noise = noise_filter(gi03flma_ris01_04_phsenf000, -0.04, 0.04)
+gi03flmb_ris01_04_phsenf000_noise = noise_filter(gi03flmb_ris01_04_phsenf000, -0.04, 0.04)
 
 # #### All Filter
 # Merge the different masks together into a single mask to eliminate all the bad or noisy data points.
 
 # +
 # GI01SUMO PHSENE041
-gi01sumo41_mask = np.stack([gi01sumo41_blanks, gi01sumo41_gross_range, gi01sumo41_noise]).T
-gi01sumo41_mask = np.all(gi01sumo41_mask, axis=1)
+gi01sumo_rii11_02_phsene041_mask = np.stack([gi01sumo_rii11_02_phsene041_blanks, gi01sumo_rii11_02_phsene041_gross_range, gi01sumo_rii11_02_phsene041_noise]).T
+gi01sumo_rii11_02_phsene041_mask = np.all(gi01sumo_rii11_02_phsene041_mask, axis=1)
 # Add the mask as a variable to the the DataSet
-gi01sumo41["mask"] = (("time"), gi01sumo41_mask)
+gi01sumo_rii11_02_phsene041["mask"] = (("time"), gi01sumo_rii11_02_phsene041_mask)
 # Drop the bad data from the DataSet
-gi01sumo41 = gi01sumo41.where(gi01sumo41.mask, drop=True)
+gi01sumo_rii11_02_phsene041 = gi01sumo_rii11_02_phsene041.where(gi01sumo_rii11_02_phsene041.mask, drop=True)
 
 # GI01SUMO PHSENE042
-gi01sumo42_mask = np.stack([gi01sumo42_blanks, gi01sumo42_gross_range, gi01sumo42_noise]).T
-gi01sumo42_mask = np.all(gi01sumo42_mask, axis=1)
+gi01sumo_rii11_02_phsene042_mask = np.stack([gi01sumo_rii11_02_phsene042_blanks, gi01sumo_rii11_02_phsene042_gross_range, gi01sumo_rii11_02_phsene042_noise]).T
+gi01sumo_rii11_02_phsene042_mask = np.all(gi01sumo_rii11_02_phsene042_mask, axis=1)
 # Add the mask as a variable to the DataSet
-gi01sumo42["mask"] = (("time"), gi01sumo42_mask)
+gi01sumo_rii11_02_phsene042["mask"] = (("time"), gi01sumo_rii11_02_phsene042_mask)
 # Drop the bad data from the DataSet
-gi01sumo42 = gi01sumo42.where(gi01sumo42.mask, drop=True)
+gi01sumo_rii11_02_phsene042 = gi01sumo_rii11_02_phsene042.where(gi01sumo_rii11_02_phsene042.mask, drop=True)
 
 # GI03FLMA
-gi03flma_mask = np.stack([gi03flma_blanks, gi03flma_gross_range, gi03flma_noise]).T
-gi03flma_mask = np.all(gi03flma_mask, axis=1)
+gi03flma_ris01_04_phsenf000_mask = np.stack([gi03flma_ris01_04_phsenf000_blanks, gi03flma_ris01_04_phsenf000_gross_range, gi03flma_ris01_04_phsenf000_noise]).T
+gi03flma_ris01_04_phsenf000_mask = np.all(gi03flma_ris01_04_phsenf000_mask, axis=1)
 # Add the mask as a variable to the DataSet
-gi03flma["mask"] = (("time"), gi03flma_mask)
+gi03flma_ris01_04_phsenf000["mask"] = (("time"), gi03flma_ris01_04_phsenf000_mask)
 # Drop the bad data from the DataSet
-gi03flma = gi03flma.where(gi03flma.mask, drop=True)
+gi03flma_ris01_04_phsenf000 = gi03flma_ris01_04_phsenf000.where(gi03flma_ris01_04_phsenf000.mask, drop=True)
 
 # GI03FLMB
-gi03flmb_mask = np.stack([gi03flmb_blanks, gi03flmb_gross_range, gi03flmb_noise]).T
-gi03flmb_mask = np.all(gi03flmb_mask, axis=1)
+gi03flmb_ris01_04_phsenf000_mask = np.stack([gi03flmb_ris01_04_phsenf000_blanks, gi03flmb_ris01_04_phsenf000_gross_range, gi03flmb_ris01_04_phsenf000_noise]).T
+gi03flmb_ris01_04_phsenf000_mask = np.all(gi03flmb_ris01_04_phsenf000_mask, axis=1)
 # Add the mask as a variable to the DataSet
-gi03flmb["mask"] = (("time", gi03flmb_mask))
+gi03flmb_ris01_04_phsenf000["mask"] = (("time", gi03flmb_ris01_04_phsenf000_mask))
 # Drop the bad data from the DataSet
-gi03flmb = gi03flmb.where(gi03flmb.mask, drop=True)
-
-# +
-fig, ax = plt.subplots(figsize=(12,8))
-
-# Plot the pH data, and color the 
-scatter = ax.scatter(gi01sumo41.time, gi01sumo41.seawater_ph, c=gi01sumo41.deployment)
-legend1 = ax.legend(*scatter.legend_elements(), title="Deployment #", fontsize=16)
-ax.set_ylabel(gi01sumo41.seawater_ph.attrs["long_name"], fontsize=16)
-ax.set_title(gi01sumo41.attrs["id"], fontsize=16)
-ax.grid()
-
-fig.autofmt_xdate()
+gi03flmb_ris01_04_phsenf000 = gi03flmb_ris01_04_phsenf000.where(gi03flmb_ris01_04_phsenf000.mask, drop=True)
 # -
-
-gi01sumo41.attrs["id"]
-
-# +
-fig, ax = plt.subplots(figsize=(12,8))
-
-# Plot the pH data, and color the 
-scatter = ax.scatter(gi01sumo42.time, gi01sumo42.seawater_ph, c=gi01sumo42.deployment)
-legend1 = ax.legend(*scatter.legend_elements(), title="Deployment #", fontsize=16)
-ax.set_ylabel(gi01sumo42.seawater_ph.attrs["long_name"], fontsize=16)
-ax.set_title(gi01sumo42.attrs["id"], fontsize=16)
-ax.grid()
-
-fig.autofmt_xdate()
-# -
-
-gi01sumo42.attrs["id"]
-
-# +
-fig, ax = plt.subplots(figsize=(12,8))
-
-# Plot the pH data, and color the 
-scatter = ax.scatter(gi03flma.time, gi03flma.seawater_ph, c=gi03flma.deployment)
-legend1 = ax.legend(*scatter.legend_elements(), title="Deployment #", fontsize=16)
-ax.set_ylabel(gi03flma.seawater_ph.attrs["long_name"], fontsize=16)
-ax.set_title(gi03flma.attrs["id"], fontsize=16)
-ax.grid()
-
-fig.autofmt_xdate()
-# -
-
-gi03flma.attrs["id"]
-
-# +
-fig, ax = plt.subplots(figsize=(12,8))
-
-# Plot the pH data, and color the 
-scatter = ax.scatter(gi03flmb.time, gi03flmb.seawater_ph, c=gi03flmb.deployment)
-legend1 = ax.legend(*scatter.legend_elements(), title="Deployment #", fontsize=16)
-ax.set_ylabel(gi03flmb.seawater_ph.attrs["long_name"], fontsize=16)
-ax.set_title(gi03flmb.attrs["id"], fontsize=16)
-ax.grid()
-
-fig.autofmt_xdate()
-# -
-
-gi03flmb.attrs["id"]
 
 # ## CTD Data
 # Next, identify the associated CTD data with the given PHSEN data. We want the CTDs which are colocated with the PHSEN data. 
@@ -695,141 +608,35 @@ ax.grid()
 #
 # Multiple samples on a Niskin: In this case, I'm going to calculate the mean value from the two samples for the Niskin.
 
-import json
+# ### Irminger Bottle Data
 
-# Need to append and clean up the bottle datasets:
+irminger_bottle_data = pd.read_csv("../data/Irminger_Sea_Discrete_Sampling_Summary.csv")
+irminger_bottle_data
+
+# Replace -9999999 with NaNs
+irminger_bottle_data = irminger_bottle_data.replace(to_replace="-9999999", value=np.nan)
+irminger_bottle_data = irminger_bottle_data.replace(to_replace=-9999999, value=np.nan)
+irminger_bottle_data
+
 
 # +
-Bottles = pd.DataFrame()
-
-ARRAY = "/media/andrew/Files/Water_Sampling/Global_Irminger_Sea_Array"
-for CRUISE in sorted(os.listdir(ARRAY)):
-    PATH = "/".join((ARRAY, CRUISE, "Ship_data", "Water_Sampling"))
-    if os.path.isdir(PATH):
-        for file in sorted(os.listdir(PATH)):
-            if "discrete" in file.lower() and file.endswith(".xlsx"):
-                BOTTLE = "/".join((PATH, file))
-                Bottles = Bottles.append(pd.read_excel(BOTTLE), ignore_index=True)
-            else:
-                pass
-            
-Bottles.head()
-# -
-
-Bottles.columns
-
-
-# If the the bottle data from all of the cruises has already been appended - then can just load it:
-
-# +
-#Bottles = pd.read_excel("Irminger_Summary.xlsx")
-#Bottles.head()
-# -
-
-# #### Split cells with multiple values into lists
-
-# +
-# First, want to split entries with a "," into a list
-def split_entry(x):
-    if type(x) == str and "," in x:
-        x = x.split(",")
-    return x
-
-for col in Bottles:
-    if "CTD" in col or "Discrete" in col:
-        Bottles[col] = Bottles[col].apply(lambda x: split_entry(x))
-    else:
-        pass
-
-
-# -
-
-# #### Clean up the entries and convert multiple measurements from the same Niskin into a single measurement
-
-# +
-def convert_entry(x):
+# Convert times from strings to 
+def convert_times(x):
     if type(x) is str:
-        try:
-            x = float(x)
-        except:
-            pass
-    elif type(x) is list:
-        try:
-            x = [float(i) for i in x]
-            x = float(np.nanmean(x))
-        except:
-            pass
-    return x
-
-for col in Bottles:
-    if "CTD" in col or "Discrete" in col:
-        Bottles[col] = Bottles[col].apply(lambda x: convert_entry(x))
+        x = x.replace(" ","").replace("Z","")
+        x = pd.to_datetime(x)
     else:
         pass
+    return x
+
+irminger_bottle_data["Start Time [UTC]"] = irminger_bottle_data["Start Time [UTC]"].apply(lambda x: convert_times(x))
+irminger_bottle_data["CTD Bottle Closure Time [UTC]"] = irminger_bottle_data["CTD Bottle Closure Time [UTC]"].apply(lambda x: convert_times(x))
 # -
 
-# #### Replace placeholders with NaNs
-
-Bottles = Bottles.replace(to_replace="-9999999", value=np.nan)
-Bottles = Bottles.replace(to_replace=-9999999, value=np.nan)
-
-# #### Convert times to pandas datetimes
-
-Bottles["Start Time [UTC]"] = Bottles["Start Time [UTC]"].apply(lambda x: pd.to_datetime(x))
-Bottles["CTD Bottle Closure Time [UTC]"] = Bottles["CTD Bottle Closure Time [UTC]"].apply(lambda x: pd.to_datetime(x))
-
-
-# #### Replace Sample IDs with fill values
-
-# +
-def clean_carbon(x):
-    if type(x) is float:
-        if (x > 10) and (x < 2000):
-            return np.nan
-        else:
-            return x
-        
-Bottles["Discrete Alkalinity [umol/kg]"] = Bottles["Discrete Alkalinity [umol/kg]"].apply(lambda x: clean_carbon(x))
-Bottles["Discrete DIC [umol/kg]"] = Bottles["Discrete DIC [umol/kg]"].apply(lambda x: clean_carbon(x))
-Bottles["Discrete pH [Total scale]"] = Bottles["Discrete pH [Total scale]"].apply(lambda x: clean_carbon(x))
-
-
-# +
-def clean_nutrients(x):
-    if type(x) is float: # or type(x) is np.float64:
-        return x
-    else:
-        if type(x) is list:
-            return np.nan
-        elif "-" in x:
-            return np.nan
-        elif "<" in x:
-            return 0
-        else:
-            return x
-        
-Bottles["Discrete Nitrate [uM]"] = Bottles["Discrete Nitrate [uM]"].apply(lambda x: clean_nutrients(x))
-Bottles["Discrete Nitrite [uM]"] = Bottles["Discrete Nitrite [uM]"].apply(lambda x: clean_nutrients(x))
-Bottles["Discrete Phosphate [uM]"] = Bottles["Discrete Phosphate [uM]"].apply(lambda x: clean_nutrients(x))
-Bottles["Discrete Silicate [uM]"] = Bottles["Discrete Silicate [uM]"].apply(lambda x: clean_nutrients(x))
-Bottles["Discrete Ammonium [uM]"] = Bottles["Discrete Ammonium [uM]"].apply(lambda x: clean_nutrients(x))
-
-
-# +
-def clean_chlorophyll(x):
-    if type(x) is float:
-        return x
-    else:
-        if type(x) is list:
-            return np.nan
-        elif "/" in x:
-            return np.nan
-        else:
-            return x
-        
-Bottles["Discrete Chlorophyll [ug/L]"] = Bottles["Discrete Chlorophyll [ug/L]"].apply(lambda x: clean_chlorophyll(x))
-Bottles["Discrete Phaeopigment [ug/L]"] = Bottles["Discrete Phaeopigment [ug/L]"].apply(lambda x: clean_chlorophyll(x))
-# -
+# Get the carbon data
+subset=["Discrete Alkalinity [umol/kg]","Discrete DIC [umol/kg]","Discrete pH [Total scale]"]
+irminger_carbon_data = irminger_bottle_data.dropna(how="all", subset=subset)
+irminger_carbon_data
 
 # ---
 # #### Calculate TEOS-10 Properties for Bottle Data 
@@ -839,27 +646,27 @@ import gsw
 
 # +
 # Calculate some key physical parameters to get density based on TEOS-10
-SP = Bottles[["CTD Salinity 1 [psu]", "CTD Salinity 2 [psu]"]].mean(axis=1)
-T = Bottles[["CTD Temperature 1 [deg C]", "CTD Temperature 2 [deg C]"]].mean(axis=1)
-P = Bottles["CTD Pressure [db]"]
-LAT = Bottles["CTD Latitude [deg]"]
-LON = Bottles["CTD Longitude [deg]"]
+SP = irminger_carbon_data[["CTD Salinity 1 [psu]", "CTD Salinity 2 [psu]"]].mean(axis=1)
+T = irminger_carbon_data[["CTD Temperature 1 [deg C]", "CTD Temperature 2 [deg C]"]].mean(axis=1)
+P = irminger_carbon_data["CTD Pressure [db]"]
+LAT = irminger_carbon_data["CTD Latitude [deg]"]
+LON = irminger_carbon_data["CTD Longitude [deg]"]
 
 # Absolute salinity
 SA = gsw.conversions.SA_from_SP(SP, P, LON, LAT)
-Bottles["CTD Absolute Salinity [g/kg]"] = SA
+irminger_carbon_data["CTD Absolute Salinity [g/kg]"] = SA
 
 # Conservative temperature
 CT = gsw.conversions.CT_from_t(SA, T, P)
-Bottles["CTD Conservative Temperature"] = CT
+irminger_carbon_data["CTD Conservative Temperature"] = CT
 
 # Density
 RHO = gsw.density.rho(SA, CT, P)
-Bottles["CTD Density [kg/m^3]"] = RHO
+irminger_carbon_data["CTD Density [kg/m^3]"] = RHO
 
 # Calculate potential density
 SIGMA0 = gsw.density.sigma0(SA, CT)
-Bottles["CTD Sigma [kg/m^3]"] = RHO
+irminger_carbon_data["CTD Sigma [kg/m^3]"] = RHO
 # -
 
 # ---
@@ -888,23 +695,23 @@ import PyCO2SYS as pyco2
 
 # +
 # Get the key parameters
-DIC = Bottles["Discrete DIC [umol/kg]"]
-TA = Bottles["Discrete Alkalinity [umol/kg]"]
-PH = Bottles["Discrete pH [Total scale]"]
-SAL = Bottles["Discrete Salinity [psu]"]
+DIC = irminger_carbon_data["Discrete DIC [umol/kg]"]
+TA = irminger_carbon_data["Discrete Alkalinity [umol/kg]"]
+PH = irminger_carbon_data["Discrete pH [Total scale]"]
+SAL = irminger_carbon_data["Discrete Salinity [psu]"]
 
 # Set the input hydrographic parameters at which the DIC/TA/pH lab measurements were performed
 TEMP_IN = 25
 PRES_IN = 0
 
 # Get the hydrographic parameters at which the samples were taken
-TEMP_OUT = Bottles[["CTD Temperature 1 [deg C]","CTD Temperature 1 [deg C]"]].mean(axis=1, skipna=True)
-PRES_OUT = Bottles["CTD Pressure [db]"]
+TEMP_OUT = irminger_carbon_data[["CTD Temperature 1 [deg C]","CTD Temperature 1 [deg C]"]].mean(axis=1, skipna=True)
+PRES_OUT = irminger_carbon_data["CTD Pressure [db]"]
 
 # Nutrient inputs = need to fill NaNs with zeros otherwise will return NaNs
-SIO4 = Bottles["Discrete Silicate [uM]"].fillna(value=0)
-PO4 = Bottles["Discrete Phosphate [uM]"].fillna(value=0)
-NH4 = Bottles["Discrete Ammonium [uM]"].fillna(value=0)
+SIO4 = irminger_carbon_data["Discrete Silicate [uM]"].fillna(value=0)
+PO4 = irminger_carbon_data["Discrete Phosphate [uM]"].fillna(value=0)
+NH4 = irminger_carbon_data["Discrete Ammonium [uM]"].fillna(value=0)
 # -
 
 CO2dict = pyco2.CO2SYS_nd(TA, DIC, 1, 2, SAL, total_ammonia=NH4, total_phosphate=PO4, total_silicate=SIO4, 
@@ -925,6 +732,7 @@ PHout = CO2dict["pH"]
 # Next, check the pH results to see how the calculated pH compares with the measured pH
 df = pd.DataFrame(data=[PH.values, PHout], index=["Measured", "CO2sys"]).T.dropna()
 df = df[df["CO2sys"] > 7]
+df = df.sort_values(by="Measured")
 PHmeas = df["Measured"].values.reshape(-1,1)
 PHcalc = df["CO2sys"].values.reshape(-1,1)
 
@@ -962,11 +770,11 @@ ax.grid()
 #
 
 # Now add the calculated carbon system parameters to the cruise info
-Bottles["Calculated Alkalinity [umol/kg]"] = CO2dict["alkalinity"]
-Bottles["Calculated CO2aq [umol/kg]"] = CO2dict["aqueous_CO2_out"]
-Bottles["Calculated CO3 [umol/kg]"] = CO2dict["carbonate_out"]
-Bottles["Calculated DIC [umol/kg]"] = CO2dict["dic"]
-Bottles["Calculated pCO2 [uatm]"] = CO2dict["pCO2_out"]
+irminger_carbon_data["Calculated Alkalinity [umol/kg]"] = CO2dict["alkalinity"]
+irminger_carbon_data["Calculated CO2aq [umol/kg]"] = CO2dict["aqueous_CO2_out"]
+irminger_carbon_data["Calculated CO3 [umol/kg]"] = CO2dict["carbonate_out"]
+irminger_carbon_data["Calculated DIC [umol/kg]"] = CO2dict["dic"]
+irminger_carbon_data["Calculated pCO2 [uatm]"] = CO2dict["pCO2_out"]
 # Bottles["Calculated pH"] = CO2dict["pH_out"]
 
 # **Adjusted pH:** Since we now know that CO2SYS can reproduce the pH measurements from the DIC/TA values, we can input the measured pH in order to adjust the pH for pressure and temperature.
@@ -974,37 +782,58 @@ Bottles["Calculated pCO2 [uatm]"] = CO2dict["pCO2_out"]
 CO2dict = pyco2.CO2SYS_nd(DIC, PH, 2, 3, SAL, total_ammonia=NH4, total_phosphate=PO4, total_silicate=SIO4, 
                           temperature_out=TEMP_OUT, pressure_out=PRES_OUT)
 
-Bottles["Calculated pH"] = CO2dict["pH_total_out"]
+irminger_carbon_data["Calculated pH"] = CO2dict["pH_total_out"]
 
 # ---
 # ## Data Comparison
 # Finally, we can go ahead and begin comparing the Bottle Data with the PHSEN data.
 
-# ### GI03FLMA PHSEN vs Bottle Data
+# ### GI03FLMA PHSEN
 
-deployments = sorted(np.unique(gi03flma.deployment))
-deployments
+gi03flma_ris01_04_phsenf000
 
-# Identify the bottle associated with GI03FLMA
-Bottles["Target Asset"].unique()
+# Annotations
+annotations = OOINet.get_annotations("GI03FLMA-RIS01-04-PHSENF000")
+gi03flma_ris01_04_phsenf000 = OOINet.add_annotation_qc_flag(gi03flma_ris01_04_phsenf000, annotations)
 
-# Filter for the associated bottles collected a GI03FLMA
-flma_mask = Bottles["Target Asset"].apply(lambda x: True if "flma" in x.lower() else False)
-gi03flma_bot = Bottles[flma_mask]
-gi03flma_bot.head()
+# Drop the bad data
+gi03flma_ris01_04_phsenf000 = gi03flma_ris01_04_phsenf000.where(gi03flma_ris01_04_phsenf000.rollup_annotations_qc_results != 9, drop=True)
+
+
+# Identify the associated discrete sample values
+
+def filter_target_asset(x, target):
+    if type(x) is str:
+        if target.lower() in x.lower():
+            return True
+        else:
+            return False
+    else:
+        return False
+
+
+gi03flma_ris01_04_phsenf000.pressure.mean()
+
+irminger_carbon_data["Target Asset"].unique()
+
+mask = irminger_carbon_data["Target Asset"].apply(lambda x: filter_target_asset(x, "flma"))
+flma = irminger_carbon_data[mask]
+surface = (flma["CTD Pressure [db]"] >= 15) & (flma["CTD Pressure [db]"] <= 45)
 
 # +
-# Plot the data
-fig, ax = plt.subplots(figsize=(15,10))
+fig, ax = plt.subplots(figsize=(12, 8))
 
-scatter = ax.scatter(gi03flma.time, gi03flma.seawater_ph, c=gi03flma.deployment)
-discrete = ax.plot(gi03flma_bot["Start Time [UTC]"], gi03flma_bot["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.set_ylabel("In-situ pH [Total Scale]", fontsize=16)
-ax.set_ylim((7.4, 8.4))
-ax.set_title(gi03flma.id, fontsize=16)
-ax.set_xlabel("Date", fontsize=16)
+# Plot the data with colors based on deployment
+discrete = ax.plot(flma[surface]["CTD Bottle Closure Time [UTC]"], 
+                   flma[surface]["Calculated pH"],
+                   marker="*", linestyle="", c="tab:red", markersize=12, label="Discrete Samples")
+scatter = ax.scatter(gi03flma_ris01_04_phsenf000.time, 
+                     gi03flma_ris01_04_phsenf000.seawater_ph,
+                     c=gi03flma_ris01_04_phsenf000.deployment)
 ax.grid()
+ax.set_title("-".join((gi03flma_ris01_04_phsenf000.attrs["id"].split("-")[0:4])), fontsize=16)
+ax.set_ylabel(gi03flma_ris01_04_phsenf000.seawater_ph.attrs["long_name"], fontsize=16)
+#ax.set_ylim((200, 500))
 
 # Generate the figure legend
 marker = scatter.legend_elements()[0]
@@ -1012,589 +841,574 @@ marker.append(discrete[0])
 label = ["Deployment " + x for x in scatter.legend_elements()[1]]
 label.append("Discrete Water Sample")
 legend =(marker, label)
-legend1 = ax.legend(*legend, fontsize=12, edgecolor="black")
+legend1 = ax.legend(*legend, fontsize=16, edgecolor="black", loc='center left', bbox_to_anchor=(1, 0.5))
+
+fig.autofmt_xdate()
+
+
+# -
+
+# Compare a particular deployment to a given deployment
+
+def plot_timeseries_with_errorbars(ds, param, bottles, bottle_param):
+    """Make plotting of time series quick"""
+    
+    # First, calculate the average and standard deviation of the time series
+    ds_dif = ds[param].diff("time")
+    ds_avg, ds_std = (ds[param].mean().values, ds[param].std().values)
+    
+    # Next, find the bottle samples within the relevant time frame, plus/minus three days
+    tmin = ds.time.min().values - pd.Timedelta(days=7)
+    tmax = ds.time.max().values + pd.Timedelta(days=7)
+    bottles = bottles[(bottles["CTD Bottle Closure Time [UTC]"] > tmin) & 
+                      (bottles["CTD Bottle Closure Time [UTC]"] < tmax)]
+    
+    # Plot the figure
+    fig, ax = plt.subplots(figsize=(12,8))
+    
+    scatter = ax.plot(ds.time, ds[param], marker=".", c="tab:blue")
+    fill = ax.fill_between(ds.time, ds[param]-ds_std*1.96, ds[param]+ds_std*1.96, alpha=0.5)
+    
+    discrete = ax.plot(bottles["Start Time [UTC]"], bottles[bottle_param],
+                       marker=".", linestyle="", markersize=24, color="tab:red")
+    
+    ax.grid()
+    ax.legend(["Timeseries", "Discrete Samples"], fontsize=12, loc="best", edgecolor="black")
+    ax.set_ylabel(ds[param].attrs["long_name"], fontsize=16)
+    title = "-".join((ds.id.split("-")[0:4])) + " Deployment " + str(int(np.unique(ds.deployment)[0]))
+    ax.set_title(title, fontsize=16)
+    ax.set_ylim((ds[param].min().values-3*ds_std, ds[param].max().values+3*ds_std))
+    fig.autofmt_xdate()
+    
+    return fig, ax, ds_avg, ds_std
+
+
+deployment_data = gi03flma_ris01_04_phsenf000.where(gi03flma_ris01_04_phsenf000.deployment == 4, drop=True)
+
+fig, ax, ds_avg, ds_std = plot_timeseries_with_errorbars(deployment_data, "seawater_ph",
+                                                         flma[surface], "Calculated pH")
+
+# ### GI03FLMB PHSEN
+
+gi03flmb_ris01_04_phsenf000
+
+# Annotations
+annotations = OOINet.get_annotations("GI03FLMB-RIS01-04-PHSENF000")
+gi03flmb_ris01_04_phsenf000 = OOINet.add_annotation_qc_flag(gi03flmb_ris01_04_phsenf000, annotations)
+
+# Drop the bad data
+gi03flmb_ris01_04_phsenf000 = gi03flmb_ris01_04_phsenf000.where(gi03flmb_ris01_04_phsenf000.rollup_annotations_qc_results != 9, drop=True)
+
+# Identify the associated discrete sample values
+
+gi03flmb_ris01_04_phsenf000.pressure.mean()
+
+mask = irminger_carbon_data["Target Asset"].apply(lambda x: filter_target_asset(x, "flmb"))
+flmb = irminger_carbon_data[mask]
+surface = (flmb["CTD Pressure [db]"] >= 15) & (flmb["CTD Pressure [db]"] <= 45)
+
+# +
+fig, ax = plt.subplots(figsize=(12, 8))
+
+# Plot the data with colors based on deployment
+discrete = ax.plot(flmb[surface]["CTD Bottle Closure Time [UTC]"], 
+                   flmb[surface]["Calculated pH"],
+                   marker="*", linestyle="", c="tab:red", markersize=12, label="Discrete Samples")
+scatter = ax.scatter(gi03flmb_ris01_04_phsenf000.time, 
+                     gi03flmb_ris01_04_phsenf000.seawater_ph,
+                     c=gi03flmb_ris01_04_phsenf000.deployment)
+ax.grid()
+ax.set_title("-".join((gi03flmb_ris01_04_phsenf000.attrs["id"].split("-")[0:4])), fontsize=16)
+ax.set_ylabel(gi03flmb_ris01_04_phsenf000.seawater_ph.attrs["long_name"], fontsize=16)
+#ax.set_ylim((200, 500))
+
+# Generate the figure legend
+marker = scatter.legend_elements()[0]
+marker.append(discrete[0])
+label = ["Deployment " + x for x in scatter.legend_elements()[1]]
+label.append("Discrete Water Sample")
+legend =(marker, label)
+legend1 = ax.legend(*legend, fontsize=16, edgecolor="black", loc='center left', bbox_to_anchor=(1, 0.5))
 
 fig.autofmt_xdate()
 # -
 
-gi03flma.lat, gi03flma.lon
+deployment_data = gi03flmb_ris01_04_phsenf000.where(gi03flmb_ris01_04_phsenf000.deployment == 2, drop=True)
 
-gi03flma_bot[gi03flma_bot["Calculated pH"].notna()][["Cruise", "Start Time [UTC]"]]
+fig, ax, ds_avg, ds_std = plot_timeseries_with_errorbars(deployment_data, "seawater_ph",
+                                                         flmb[surface], "Calculated pH")
 
-# There are three apparent cruises on which we have discrete water sample data for comparison with the in-situ PHSEN data: **AT30-01**, **AR7-01**, **AR21**.
+# ### GI01SUMO PHSENE041
+
+gi01sumo_rii11_02_phsene041
+
+# Annotations
+annotations = OOINet.get_annotations("GI01SUMO-RII11-02-PHSENE041")
+gi01sumo_rii11_02_phsene041 = OOINet.add_annotation_qc_flag(gi01sumo_rii11_02_phsene041, annotations)
+
+# Drop the bad data
+gi01sumo_rii11_02_phsene041 = gi01sumo_rii11_02_phsene041.where(gi01sumo_rii11_02_phsene041.rollup_annotations_qc_results != 9, drop=True)
+
+# Identify the associated discrete sample values
+
+gi01sumo_rii11_02_phsene041.pressure.mean().values, gi01sumo_rii11_02_phsene041.pressure.std().values
+
+mask = irminger_carbon_data["Target Asset"].apply(lambda x: filter_target_asset(x, "sumo"))
+sumo = irminger_carbon_data[mask]
+surface = (sumo["CTD Pressure [db]"] >= 15) & (sumo["CTD Pressure [db]"] <= 45)
+
+# +
+fig, ax = plt.subplots(figsize=(12, 8))
+
+# Plot the data with colors based on deployment
+discrete = ax.plot(sumo[surface]["CTD Bottle Closure Time [UTC]"], 
+                   sumo[surface]["Calculated pH"],
+                   marker="*", linestyle="", c="tab:red", markersize=12, label="Discrete Samples")
+scatter = ax.scatter(gi01sumo_rii11_02_phsene041.time, 
+                     gi01sumo_rii11_02_phsene041.seawater_ph,
+                     c=gi01sumo_rii11_02_phsene041.deployment)
+ax.grid()
+ax.set_title("-".join((gi01sumo_rii11_02_phsene041.attrs["id"].split("-")[0:4])), fontsize=16)
+ax.set_ylabel(gi01sumo_rii11_02_phsene041.seawater_ph.attrs["long_name"], fontsize=16)
+#ax.set_ylim((200, 500))
+
+# Generate the figure legend
+marker = scatter.legend_elements()[0]
+marker.append(discrete[0])
+label = ["Deployment " + x for x in scatter.legend_elements()[1]]
+label.append("Discrete Water Sample")
+legend =(marker, label)
+legend1 = ax.legend(*legend, fontsize=16, edgecolor="black", loc='center left', bbox_to_anchor=(1, 0.5))
+
+fig.autofmt_xdate()
+# -
+
+deployment_data = gi01sumo_rii11_02_phsene041.where(gi01sumo_rii11_02_phsene041.deployment == 2, drop=True)
+
+fig, ax, ds_avg, ds_std = plot_timeseries_with_errorbars(deployment_data, "seawater_ph",
+                                                         sumo[surface], "Calculated pH")
+
+# ### GI01SUMO PHSENE042
+
+gi01sumo_rii11_02_phsene042
+
+# Annotations
+annotations = OOINet.get_annotations("GI01SUMO-RII11-02-PHSENE042")
+gi01sumo_rii11_02_phsene042 = OOINet.add_annotation_qc_flag(gi01sumo_rii11_02_phsene042, annotations)
+
+# Drop the bad values
+gi01sumo_rii11_02_phsene042 = gi01sumo_rii11_02_phsene042.where(gi01sumo_rii11_02_phsene042.rollup_annotations_qc_results != 9, drop=True)
+
+# Identify the associated discrete sample values
+
+gi01sumo_rii11_02_phsene042.pressure.mean().values, gi01sumo_rii11_02_phsene042.pressure.std().values
+
+mask = irminger_carbon_data["Target Asset"].apply(lambda x: filter_target_asset(x, "sumo"))
+sumo = irminger_carbon_data[mask]
+surface = (sumo["CTD Pressure [db]"] >= 80) & (sumo["CTD Pressure [db]"] <= 120)
+
+# +
+fig, ax = plt.subplots(figsize=(12, 8))
+
+# Plot the data with colors based on deployment
+discrete = ax.plot(sumo[surface]["CTD Bottle Closure Time [UTC]"], 
+                   sumo[surface]["Calculated pH"],
+                   marker="*", linestyle="", c="tab:red", markersize=12, label="Discrete Samples")
+scatter = ax.scatter(gi01sumo_rii11_02_phsene042.time, 
+                     gi01sumo_rii11_02_phsene042.seawater_ph,
+                     c=gi01sumo_rii11_02_phsene042.deployment)
+ax.grid()
+ax.set_title("-".join((gi01sumo_rii11_02_phsene042.attrs["id"].split("-")[0:4])), fontsize=16)
+ax.set_ylabel(gi01sumo_rii11_02_phsene042.seawater_ph.attrs["long_name"], fontsize=16)
+#ax.set_ylim((200, 500))
+
+# Generate the figure legend
+marker = scatter.legend_elements()[0]
+marker.append(discrete[0])
+label = ["Deployment " + x for x in scatter.legend_elements()[1]]
+label.append("Discrete Water Sample")
+legend =(marker, label)
+legend1 = ax.legend(*legend, fontsize=16, edgecolor="black", loc='center left', bbox_to_anchor=(1, 0.5))
+
+fig.autofmt_xdate()
+# -
+
+deployment_data = gi01sumo_rii11_02_phsene042.where(gi01sumo_rii11_02_phsene042.deployment == 3, drop=True)
+
+fig, ax, ds_avg, ds_std = plot_timeseries_with_errorbars(deployment_data, "seawater_ph",
+                                                         sumo[surface], "Calculated pH")
+
+# ---
+# ## Pioneer Array
+
+# ### Identify PHSEN instruments
+# Next, we want to identify the deployed PHSEN instruments. Based on the results of the PHSEN tech refresh analysis, we have identified the following sensors as having relatively robust datasets: **CP01CNSM** and **CP03ISSM**. Additionally, we include the PHSEN on the surface mooring **CP04OSSM**.
+
+OOINet.search_datasets(array="CP01CNSM", instrument="PHSEN")
+
+OOINet.search_datasets(array="CP03ISSM", instrument="PHSEN")
+
+OOINet.search_datasets(array="CP04OSSM", instrument="PHSEN")
+
+# ### Identify associated CTDs
+# Now, we want to identify the associated CTD datasets to the PHSEN datasets
+
+OOINet.search_datasets(array="CP01CNSM", instrument="CTDBP")
+
+OOINet.search_datasets(array="CP03ISSM", instrument="CTDBP")
+
+OOINet.search_datasets(array="CP04OSSM", instrument="CTDBP")
+
+# ### Download Datasets
+
+refdes = "CP04OSSM-MFD35-06-PHSEND000"
+
+metadata = OOINet.get_metadata(refdes)
+metadata = metadata.groupby(by=["refdes","method","stream"]).agg(lambda x: pd.unique(x.values.ravel()).tolist())
+metadata = metadata.reset_index()
+metadata = metadata.applymap(lambda x: x[0] if len(x) == 1 else x)
+metadata
+
+method = "recovered_inst"
+stream = "phsen_abcdef_instrument"
+parameters = "All"
+
+# +
+# Load the thredds table
+thredds_table = pd.read_csv("../data/thredds_table.csv")
+
+# Check the thredds_table for if the data has already been loaded
+thredds_table, thredds_url = check_thredds_table(thredds_table, refdes, method, stream, parameters)
+print(thredds_url)
+
+# Save the thredds_table
+thredds_table.to_csv("../data/thredds_table.csv", index=False)
+# -
+
+# Get the THREDDS catalog for the reference designator
+thredds_catalog = OOINet.get_thredds_catalog(thredds_url)
+
+# Parse the datasets
+netCDF_files = sorted(OOINet.parse_catalog(thredds_catalog, exclude=["gps","blank","ENG","CTDBP"]))
+netCDF_files
+
+# Load the netCDF datasets
+phsen = OOINet.load_netCDF_datasets(netCDF_files)
+phsen = phsen.sortby("time")
+phsen
+
+# Reformat the PHSEN datasets
+# PHSEN = PHSEN()
+phsen = PHSEN.phsen_instrument(phsen)
+phsen = phsen.sortby("time")
+phsen
+
+# #### Download Associated Dataset
+
+refdes = "CP04OSSM-MFD37-03-CTDBPE000"
+
+metadata = OOINet.get_metadata(refdes)
+metadata = metadata.groupby(by=["refdes","method","stream"]).agg(lambda x: pd.unique(x.values.ravel()).tolist())
+metadata = metadata.reset_index()
+metadata = metadata.applymap(lambda x: x[0] if len(x) == 1 else x)
+metadata
+
+method = "recovered_inst"
+stream = "ctdbp_cdef_instrument_recovered"
+parameters = "All"
+
+# +
+# Load the thredds table
+thredds_table = pd.read_csv("../data/thredds_table.csv")
+
+# Check the thredds_table for if the data has already been loaded
+thredds_table, thredds_url = check_thredds_table(thredds_table, refdes, method, stream, parameters)
+print(thredds_url)
+
+# Save the thredds_table
+thredds_table.to_csv("../data/thredds_table.csv")
+
+# +
+# Get the catalog
+thredds_catalog = OOINet.get_thredds_catalog(thredds_url)
+
+# Parse the datasets
+netCDF_files = sorted(OOINet.parse_catalog(thredds_catalog, exclude=["gps","blank","ENG"]))
+netCDF_files
+# -
+
+# Load the netCDF datasets
+ctdbp = OOINet.load_netCDF_datasets(netCDF_files)
+ctdbp = ctdbp.sortby("time")
+ctdbp
+
+
+# #### Interpolate the CTD parameters to the PHSEN dataset
+
+def interpolate_ctd(phsen, ctd):
+    
+    deployments = np.unique(phsen.deployment.values)
+    
+    ds = None
+    
+    for depNum in deployments:
+        
+        # Get the relevant ctd and pco2 data
+        ctd_dep = ctd.where(ctd.deployment == depNum, drop=True)
+        phsen_dep = phsen.where(phsen.deployment == depNum, drop=True)  
+
+        # Sort by time
+        ctd_dep = ctd_dep.sortby("time")
+        phsen_dep = phsen_dep.sortby("time")
+
+        # Drop duplicated indexes
+        ctd_dep = ctd_dep.sel(time=~ctd_dep.get_index("time").duplicated())
+
+        # Interpolate the data
+        if len(ctd_dep.time) <= 1:
+            # Need to create a dummy dataset of all NaNs to append
+            data_vars = {}
+            for var in ctd_dep.variables:
+                if "time" in var:
+                    continue
+                array = np.empty(phsen.time.size)
+                array[:] = np.nan
+                data_vars.update({var: (["time"], array)})
+            coords = phsen_dep.coords
+            attrs = phsen_dep.attrs
+            phsen_ctd = xr.Dataset(
+                data_vars = data_vars,
+                coords = coords,
+                attrs = attrs)
+        elif len(phsen_dep.time) <= 1:
+            continue
+        else:
+            phsen_ctd = ctd_dep.interp_like(phsen)
+            phsen_ctd = phsen_ctd.sortby("time")
+
+        if ds is None:
+            ds = phsen_ctd
+        else:
+            ds = xr.concat([ds, phsen_ctd], dim="time")
+
+
+# +
+ds = None
+
+deployments = np.unique(phsen.deployment.values)
+
+for depNum in deployments:
+    
+    # Get the relevant ctd and pco2 data
+    ctd = ctdbp.where(ctdbp.deployment == depNum, drop=True)
+    co2 = phsen.where(phsen.deployment == depNum, drop=True)  
+    
+    # Sort by time
+    ctd = ctd.sortby("time")
+    co2 = co2.sortby("time")
+    
+    # Drop duplicated indexes
+    ctd = ctd.sel(time=~ctd.get_index("time").duplicated())
+    
+    # Interpolate the data
+    if len(ctd.time) <= 1:
+        # Need to create a dummy dataset of all NaNs to append
+        data_vars = {}
+        for var in ctd.variables:
+            if "time" in var:
+                continue
+            array = np.empty(co2.time.size)
+            array[:] = np.nan
+            data_vars.update({var: (["time"], array)})
+        coords = co2.coords
+        attrs = co2.attrs
+        co2_ctd = xr.Dataset(
+            data_vars = data_vars,
+            coords = coords,
+            attrs = attrs)
+    elif len(co2.time) <= 1:
+        continue
+    else:
+        co2_ctd = ctd.interp_like(co2)
+        co2_ctd = co2_ctd.sortby("time")
+        
+    if ds is None:
+        ds = co2_ctd
+    else:
+        ds = xr.concat([ds, co2_ctd], dim="time")
+# -
+
+ds
+
+phsen["temperature"] = ("time", ds.ctdbp_seawater_temperature)
+phsen["practical_salinity"] = ("time", ds.practical_salinity)
+phsen["pressure"] = ("time", ds.ctdbp_seawater_pressure)
+phsen["density"] = ("time", ds.density)
+
+# #### Save the Data
+
+filename = "_".join((phsen.attrs["id"].split("-")[0:4]))
+filename
+
+phsen.to_netcdf(f"../data/{filename}.nc")
+
+# ---
+# ## Load the Pioneer PHSEN Datasets
+
+os.listdir("../data/")
+
+# +
+# Central Surface Mooring
+cp01cnsm_rid26_06_phsend000 = xr.open_dataset("../data/CP01CNSM_RID26_06_PHSEND000.nc")
+cp01cnsm_mfd35_06_phsend000 = xr.open_dataset("../data/CP01CNSM_MFD35_06_PHSEND000.nc")
+
+# Inshore Surface Mooring
+cp03issm_rid26_06_phsend000 = xr.open_dataset("../data/CP03ISSM_RID26_06_PHSEND000.nc")
+cp03issm_mfd35_06_phsend000 = xr.open_dataset("../data/CP03ISSM_MFD35_06_PHSEND000.nc")
+
+# Offshore Surface Mooring
+cp04ossm_rid26_06_phsend000 = xr.open_dataset("../data/CP04OSSM_RID26_06_PHSEND000.nc")
+cp04ossm_mfd35_06_phsend000 = xr.open_dataset("../data/CP04OSSM_MFD35_06_PHSEND000.nc")
+# -
+
+# ---
+# ## Process the Data
+# The next step is to process the data following
 #
-# Next, we want to look at the individual deployments, calculate the standard deviations, and compare with the discrete water bottle samples.
-#
-# **Deployment 2**
-
-flma_bot2 = gi03flma_bot[gi03flma_bot["Calculated pH"].notna()].loc[[229, 324]]
-flma_dep2 = gi03flma.where(gi03flma.deployment == 2, drop=True)
-flma_dep2_dif = flma_dep2.where(flma_dep2.mask.astype(bool), drop=True).diff("time")
-flma_dep2_avg, flma_dep2_std = (flma_dep2_dif.seawater_ph.values.mean(), flma_dep2_dif.seawater_ph.values.std())
-
-flma_dep2_avg, flma_dep2_std
+# #### Blanks
+# The quality of the blanks for the two wavelengths at 434 and 578 nm directly influences the quality of the pH seawater measurements. Each time stamp of the blank consists of four blank samples. The vendor suggests that the intensity of the blanks should fall between 341 counts and 3891 counts. Consequently, the approach is to average the four blank measurements into a single blank average, run the gross range test for blank counts outside of the suggested range 341 - 3891 counts, and then combine the results of the blanks at 434 and 578 nm
 
 # +
-fig, ax = plt.subplots(figsize=(12, 8))
+cp01cnsm_rid26_06_phsend000_blanks = blanks_mask(cp01cnsm_rid26_06_phsend000)
+cp01cnsm_mfd35_06_phsend000_blanks = blanks_mask(cp01cnsm_mfd35_06_phsend000)
 
-scatter = ax.plot(flma_dep2.time, flma_dep2.seawater_ph, marker=".", c="tab:blue")
-fill = ax.fill_between(flma_dep2.time, flma_dep2.seawater_ph-flma_dep2_std*1.96, 
-                      flma_dep2.seawater_ph+flma_dep2_std*1.96, alpha=0.5)
-discrete = ax.plot(flma_bot2["Start Time [UTC]"], flma_bot2["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.legend(["PHSEN","Discrete Samples"], fontsize=12)
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.set_title(f"{flma_dep2_dif.id} Deployment 2", fontsize=16)
-fig.autofmt_xdate()
+cp03issm_rid26_06_phsend000_blanks = blanks_mask(cp03issm_rid26_06_phsend000)
+cp03issm_mfd35_06_phsend000_blanks = blanks_mask(cp03issm_mfd35_06_phsend000)
+
+cp04ossm_rid26_06_phsend000_blanks = blanks_mask(cp04ossm_rid26_06_phsend000)
+cp04ossm_mfd35_06_phsend000_blanks = blanks_mask(cp04ossm_mfd35_06_phsend000)
 # -
 
-np.min(flma_dep2.time), np.max(flma_dep2.time)
+# #### Gross Range
+# The next filter is the gross range test on the pH values. Chris Wingard suggests that the pH values should fall between 7.4 and 8.6 pH units.
 
 # +
-# Do the deployment
-deploy_bot = flma_bot2.loc[229]
-recover_bot = flma_bot2.loc[324]
+# Central Surface Mooring
+cp01cnsm_rid26_06_phsend000_gross_range = (cp01cnsm_rid26_06_phsend000.seawater_ph > 7.4) & (cp01cnsm_rid26_06_phsend000.seawater_ph < 8.6)
+cp01cnsm_rid26_06_phsend000_gross_range = cp01cnsm_rid26_06_phsend000_gross_range.values
 
-flma_dep2_deploy = flma_dep2.sel(time=slice("2015-08-19","2015-08-22"))
-flma_dep2_recover = flma_dep2.sel(time=slice("2016-07-09","2016-07-13"))
+cp01cnsm_mfd35_06_phsend000_gross_range = (cp01cnsm_mfd35_06_phsend000.seawater_ph > 7.4) & (cp01cnsm_mfd35_06_phsend000.seawater_ph < 8.6)
+cp01cnsm_mfd35_06_phsend000_gross_range = cp01cnsm_mfd35_06_phsend000_gross_range.values
 
-# +
-fig, (ax0, ax1) = plt.subplots(ncols=2, nrows=1, figsize=(12,8))
+# Inshore Surface Mooring
+cp03issm_rid26_06_phsend000_gross_range = (cp03issm_rid26_06_phsend000.seawater_ph > 7.4) & (cp03issm_rid26_06_phsend000.seawater_ph < 8.6)
+cp03issm_rid26_06_phsend000_gross_range = cp03issm_rid26_06_phsend000_gross_range.values
 
-ax0.plot(flma_dep2_deploy.time, flma_dep2_deploy.seawater_ph, marker=".", c="tab:blue")
-ax0.fill_between(flma_dep2_deploy.time, flma_dep2_deploy.seawater_ph-flma_dep2_std*1.96, 
-                 flma_dep2_deploy.seawater_ph+flma_dep2_std*1.96, alpha=0.5)
-ax0.plot(deploy_bot["Start Time [UTC]"], deploy_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax0.grid()
-ax0.set_ylabel("pH [Total Scale]", fontsize=16)
-ax0.legend(["PHSEN", "Discrete Samples"], loc="lower right", fontsize=12)
-ax0.set_title("Deployment")
+cp03issm_mfd35_06_phsend000_gross_range = (cp03issm_mfd35_06_phsend000.seawater_ph > 7.4) & (cp03issm_mfd35_06_phsend000.seawater_ph < 8.6)
+cp03issm_mfd35_06_phsend000_gross_range = cp03issm_mfd35_06_phsend000_gross_range.values
 
+# Offshore Surface Mooring
+cp04ossm_rid26_06_phsend000_gross_range = (cp04ossm_rid26_06_phsend000.seawater_ph > 7.4) & (cp04ossm_rid26_06_phsend000.seawater_ph < 8.6)
+cp04ossm_rid26_06_phsend000_gross_range = cp04ossm_rid26_06_phsend000_gross_range.values
 
-ax1.plot(flma_dep2_recover.time, flma_dep2_recover.seawater_ph, marker=".", c="tab:blue")
-ax1.fill_between(flma_dep2_recover.time, flma_dep2_recover.seawater_ph-flma_dep2_std*1.96, 
-                 flma_dep2_recover.seawater_ph+flma_dep2_std*1.96, alpha=0.5)
-ax1.plot(recover_bot["Start Time [UTC]"], recover_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax1.grid()
-ax1.set_title("Recovery")
-
-fig.autofmt_xdate()
+cp04ossm_mfd35_06_phsend000_gross_range = (cp04ossm_mfd35_06_phsend000.seawater_ph > 7.4) & (cp04ossm_mfd35_06_phsend000.seawater_ph < 8.6)
+cp04ossm_mfd35_06_phsend000_gross_range = cp04ossm_mfd35_06_phsend000_gross_range.values
 # -
 
-# **Deployment 3**
-
-flma_bot3 = gi03flma_bot[gi03flma_bot["Calculated pH"].notna()].loc[[324, 428]]
-flma_dep3 = gi03flma.where(gi03flma.deployment == 3, drop=True)
-flma_dep3_dif = flma_dep3.where(flma_dep3.mask.astype(bool), drop=True).diff("time")
-flma_dep3_avg, flma_dep3_std = (flma_dep3_dif.seawater_ph.values.mean(), flma_dep3_dif.seawater_ph.values.std())
-
-flma_dep3_avg, flma_dep3_std
+# #### Noise Filter
+# Lastly, I want to filter the pH sensor for when it is excessively noisy. This involves several steps. First, have to separate by deployment to avoid cross-deployment false error. Second, take the first-order difference of the pH values. Then, run the gross range test on the first-order difference with (min, max) values of (-0.04, 0.4) (suggested by Chris Wingard). 
 
 # +
-fig, ax = plt.subplots(figsize=(12, 8))
+# Central Surface Mooring
+cp01cnsm_rid26_06_phsend000_noise = noise_filter(cp01cnsm_rid26_06_phsend000, -0.04, 0.04)
+cp01cnsm_mfd35_06_phsend000_noise = noise_filter(cp01cnsm_mfd35_06_phsend000, -0.04, 0.04)
 
-scatter = ax.plot(flma_dep3.time, flma_dep3.seawater_ph, marker=".", c="tab:blue")
-fill = ax.fill_between(flma_dep3.time, flma_dep3.seawater_ph-flma_dep2_std*1.96, 
-                      flma_dep3.seawater_ph+flma_dep3_std*1.96, alpha=0.5)
-discrete = ax.plot(flma_bot3["Start Time [UTC]"], flma_bot3["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.legend(["PHSEN","Discrete Samples"], fontsize=12)
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.set_title(f"{flma_dep3_dif.id} Deployment 3", fontsize=16)
-fig.autofmt_xdate()
+# Inshore Surface Mooring
+cp03issm_rid26_06_phsend000_noise = noise_filter(cp03issm_rid26_06_phsend000, -0.04, 0.04)
+cp03issm_mfd35_06_phsend000_noise = noise_filter(cp03issm_mfd35_06_phsend000, -0.04, 0.04)
+
+# Offshore Surface Mooring
+cp04ossm_rid26_06_phsend000_noise = noise_filter(cp04ossm_rid26_06_phsend000, -0.04, 0.04)
+cp04ossm_mfd35_06_phsend000_noise = noise_filter(cp04ossm_mfd35_06_phsend000, -0.04, 0.04)
 # -
 
-np.min(flma_dep3.time), np.max(flma_dep3.time)
+# #### All Filter
+# Merge the different masks together into a single mask to eliminate all the bad or noisy data points.
 
 # +
-# Do the deployment
-deploy_bot = flma_bot3.loc[324]
-recover_bot = flma_bot3.loc[428]
+# Central Surface Mooring
+# NSIF
+cp01cnsm_rid26_06_phsend000_mask = np.stack([cp01cnsm_rid26_06_phsend000_blanks, cp01cnsm_rid26_06_phsend000_gross_range, cp01cnsm_rid26_06_phsend000_noise]).T
+cp01cnsm_rid26_06_phsend000_mask = np.all(cp01cnsm_rid26_06_phsend000_mask, axis=1)
+# Add the mask as a variable to the the DataSet
+cp01cnsm_rid26_06_phsend000["mask"] = (("time"), cp01cnsm_rid26_06_phsend000_mask)
+# Drop the bad data from the DataSet
+cp01cnsm_rid26_06_phsend000 = cp01cnsm_rid26_06_phsend000.where(cp01cnsm_rid26_06_phsend000.mask, drop=True)
 
-flma_dep3_deploy = flma_dep3.sel(time=slice("2016-07-17","2016-07-20"))
-flma_dep3_recover = flma_dep3.sel(time=slice("2017-08-05","2017-08-09"))
-
-# +
-fig, (ax0, ax1) = plt.subplots(ncols=2, nrows=1, figsize=(12,8))
-
-ax0.plot(flma_dep3_deploy.time, flma_dep3_deploy.seawater_ph, marker=".", c="tab:blue")
-ax0.fill_between(flma_dep3_deploy.time, flma_dep3_deploy.seawater_ph-flma_dep3_std*1.96, 
-                 flma_dep3_deploy.seawater_ph+flma_dep3_std*1.96, alpha=0.5)
-ax0.plot(deploy_bot["Start Time [UTC]"], deploy_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax0.grid()
-ax0.set_ylabel("pH [Total Scale]", fontsize=16)
-ax0.legend(["PHSEN", "Discrete Samples"], loc="lower right", fontsize=12)
-ax0.set_title("Deployment")
+# MFN
+cp01cnsm_mfd35_06_phsend000_mask = np.stack([cp01cnsm_mfd35_06_phsend000_blanks, cp01cnsm_mfd35_06_phsend000_gross_range, cp01cnsm_mfd35_06_phsend000_noise]).T
+cp01cnsm_mfd35_06_phsend000_mask = np.all(cp01cnsm_mfd35_06_phsend000_mask, axis=1)
+# Add the mask as a variable to the the DataSet
+cp01cnsm_mfd35_06_phsend000["mask"] = (("time"), cp01cnsm_mfd35_06_phsend000_mask)
+# Drop the bad data from the DataSet
+cp01cnsm_mfd35_06_phsend000 = cp01cnsm_mfd35_06_phsend000.where(cp01cnsm_mfd35_06_phsend000.mask, drop=True)
 
 
-ax1.plot(flma_dep3_recover.time, flma_dep3_recover.seawater_ph, marker=".", c="tab:blue")
-ax1.fill_between(flma_dep3_recover.time, flma_dep3_recover.seawater_ph-flma_dep3_std*1.96, 
-                 flma_dep3_recover.seawater_ph+flma_dep3_std*1.96, alpha=0.5)
-ax1.plot(recover_bot["Start Time [UTC]"], recover_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax1.grid()
-ax1.set_title("Recovery")
+# Inshore Surface Mooring
+# NSIF
+cp03issm_rid26_06_phsend000_mask = np.stack([cp03issm_rid26_06_phsend000_blanks, cp03issm_rid26_06_phsend000_gross_range, cp03issm_rid26_06_phsend000_noise]).T
+cp03issm_rid26_06_phsend000_mask = np.all(cp03issm_rid26_06_phsend000_mask, axis=1)
+# Add the mask as a variable to the the DataSet
+cp03issm_rid26_06_phsend000["mask"] = (("time"), cp03issm_rid26_06_phsend000_mask)
+# Drop the bad data from the DataSet
+cp03issm_rid26_06_phsend000 = cp03issm_rid26_06_phsend000.where(cp03issm_rid26_06_phsend000.mask, drop=True)
 
-fig.autofmt_xdate()
+# MFN
+cp03issm_mfd35_06_phsend000_mask = np.stack([cp03issm_mfd35_06_phsend000_blanks, cp03issm_mfd35_06_phsend000_gross_range, cp03issm_mfd35_06_phsend000_noise]).T
+cp03issm_mfd35_06_phsend000_mask = np.all(cp03issm_mfd35_06_phsend000_mask, axis=1)
+# Add the mask as a variable to the the DataSet
+cp03issm_mfd35_06_phsend000["mask"] = (("time"), cp03issm_mfd35_06_phsend000_mask)
+# Drop the bad data from the DataSet
+cp03issm_mfd35_06_phsend000 = cp03issm_mfd35_06_phsend000.where(cp03issm_mfd35_06_phsend000.mask, drop=True)
+
+# Offshore Surface Mooring
+# NSIF
+cp04ossm_rid26_06_phsend000_mask = np.stack([cp04ossm_rid26_06_phsend000_blanks, cp04ossm_rid26_06_phsend000_gross_range, cp04ossm_rid26_06_phsend000_noise]).T
+cp04ossm_rid26_06_phsend000_mask = np.all(cp04ossm_rid26_06_phsend000_mask, axis=1)
+# Add the mask as a variable to the the DataSet
+cp04ossm_rid26_06_phsend000["mask"] = (("time"), cp04ossm_rid26_06_phsend000_mask)
+# Drop the bad data from the DataSet
+cp04ossm_rid26_06_phsend000 = cp04ossm_rid26_06_phsend000.where(cp04ossm_rid26_06_phsend000.mask, drop=True)
+
+# MFN
+cp04ossm_mfd35_06_phsend000_mask = np.stack([cp04ossm_mfd35_06_phsend000_blanks, cp04ossm_mfd35_06_phsend000_gross_range, cp04ossm_mfd35_06_phsend000_noise]).T
+cp04ossm_mfd35_06_phsend000_mask = np.all(cp04ossm_mfd35_06_phsend000_mask, axis=1)
+# Add the mask as a variable to the the DataSet
+cp04ossm_mfd35_06_phsend000["mask"] = (("time"), cp04ossm_mfd35_06_phsend000_mask)
+# Drop the bad data from the DataSet
+cp04ossm_mfd35_06_phsend000 = cp04ossm_mfd35_06_phsend000.where(cp04ossm_mfd35_06_phsend000.mask, drop=True)
 # -
 
-# **Deployment 4**
+# ---
+# ### Pioneer Discrete Water
 
-flma_bot4 = gi03flma_bot[gi03flma_bot["Calculated pH"].notna()].loc[[428]]
-flma_dep4 = gi03flma.where(gi03flma.deployment == 4, drop=True)
-flma_dep4_dif = flma_dep4.where(flma_dep4.mask.astype(bool), drop=True).diff("time")
-flma_dep4_avg, flma_dep4_std = (flma_dep4_dif.seawater_ph.values.mean(), flma_dep4_dif.seawater_ph.values.std())
+pioneer_bottle_data = pd.read_csv("../data/Pioneer_Discrete_Summary_Data2.csv")
+pioneer_bottle_data
 
-flma_dep4_avg, flma_dep4_std
+# Replace -9999999 with NaNs
+pioneer_bottle_data = pioneer_bottle_data.replace(to_replace="-9999999", value=np.nan)
+pioneer_bottle_data = pioneer_bottle_data.replace(to_replace=-9999999, value=np.nan)
+pioneer_bottle_data
 
-# +
-fig, ax = plt.subplots(figsize=(12, 8))
+# Convert the dates and times
+pioneer_bottle_data["Start Time [UTC]"] = pioneer_bottle_data["Start Time [UTC]"].apply(lambda x: convert_times(x))
+pioneer_bottle_data["CTD Bottle Closure Time [UTC]"] = pioneer_bottle_data["CTD Bottle Closure Time [UTC]"].apply(lambda x: convert_times(x))
 
-scatter = ax.plot(flma_dep4.time, flma_dep4.seawater_ph, marker=".", c="tab:blue")
-fill = ax.fill_between(flma_dep4.time, flma_dep4.seawater_ph-flma_dep2_std*1.96, 
-                      flma_dep4.seawater_ph+flma_dep4_std*1.96, alpha=0.5)
-discrete = ax.plot(flma_bot4["Start Time [UTC]"], flma_bot4["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.legend(["PHSEN","Discrete Samples"], fontsize=12)
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.set_title(f"{flma_dep4_dif.id} Deployment 4", fontsize=16)
-fig.autofmt_xdate()
-# -
 
-np.min(flma_dep4.time), np.max(flma_dep4.time)
 
-# +
-# Do the deployment
-deploy_bot = flma_bot4.loc[428]
-#recover_bot = flma_bot4.loc[428]
 
-flma_dep4_deploy = flma_dep4.sel(time=slice("2017-08-12","2017-08-16"))
-flma_dep4_recover = flma_dep4.sel(time=slice("2018-06-11","2018-06-15"))
 
-# +
-fig, ax = plt.subplots(figsize=(12,8))
-
-ax.plot(flma_dep4_deploy.time, flma_dep4_deploy.seawater_ph, marker=".", c="tab:blue")
-ax.fill_between(flma_dep4_deploy.time, flma_dep4_deploy.seawater_ph-flma_dep4_std*1.96, 
-                 flma_dep4_deploy.seawater_ph+flma_dep4_std*1.96, alpha=0.5)
-ax.plot(deploy_bot["Start Time [UTC]"], deploy_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.legend(["PHSEN", "Discrete Samples"], loc="lower right", fontsize=12)
-ax.set_title("Deployment")
-
-fig.autofmt_xdate()
-
-# +
-fig, (ax0, ax1, ax2) = plt.subplots(nrows=3, ncols=1, figsize=(12, 24))
-
-scatter = ax0.plot(flma_dep2.time.values[flma_dep2.mask.astype(bool)], flma_dep2.seawater_ph.values[flma_dep2.mask.astype(bool)],
-                  marker=".", c="tab:blue")
-fill = ax0.fill_between(flma_dep2.time[flma_dep2.mask.astype(bool)], flma_dep2.seawater_ph[flma_dep2.mask.astype(bool)]-flma_dep2_std*1.96, 
-                      flma_dep2.seawater_ph[flma_dep2.mask.astype(bool)]+flma_dep2_std*1.96, alpha=0.5)
-discrete = ax0.plot(flma_bot2["Start Time [UTC]"], flma_bot2["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax0.grid()
-ax0.legend(["PHSEN","Discrete Samples"], fontsize=12)
-ax0.set_ylabel("pH [Total Scale]", fontsize=16)
-ax0.set_title(f"{flma_dep2_dif.id}\nDeployment 2", fontsize=16)
-
-scatter = ax1.plot(flma_dep3.time.values[flma_dep3.mask.astype(bool)], flma_dep3.seawater_ph.values[flma_dep3.mask.astype(bool)],
-                  marker=".", c="tab:blue")
-fill = ax1.fill_between(flma_dep3.time[flma_dep3.mask.astype(bool)], flma_dep3.seawater_ph[flma_dep3.mask.astype(bool)]-flma_dep2_std*1.96, 
-                      flma_dep3.seawater_ph[flma_dep3.mask.astype(bool)]+flma_dep3_std*1.96, alpha=0.5)
-discrete = ax1.plot(flma_bot3["Start Time [UTC]"], flma_bot3["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax1.grid()
-ax1.legend(["PHSEN","Discrete Samples"], fontsize=12)
-#ax1.set_ylabel("pH [Total Scale]", fontsize=16)
-ax1.set_title(f"Deployment 3", fontsize=16)
-
-scatter = ax2.plot(flma_dep4.time.values[flma_dep4.mask.astype(bool)], flma_dep4.seawater_ph.values[flma_dep4.mask.astype(bool)],
-                  marker=".", c="tab:blue")
-fill = ax2.fill_between(flma_dep4.time[flma_dep4.mask.astype(bool)], flma_dep4.seawater_ph[flma_dep4.mask.astype(bool)]-flma_dep2_std*1.96, 
-                      flma_dep4.seawater_ph[flma_dep4.mask.astype(bool)]+flma_dep4_std*1.96, alpha=0.5)
-discrete = ax2.plot(flma_bot4["Start Time [UTC]"], flma_bot4["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax2.grid()
-#ax2.legend(["PHSEN","Discrete Samples"], fontsize=12)
-ax2.set_ylabel("pH [Total Scale]", fontsize=16)
-ax2.set_title(f"Deployment 4", fontsize=16)
-# -
-
-# ### GI03FLMB-RIS01-04-PHSENF000 vs. Bottle Data
-
-deployments = sorted(np.unique(gi03flma.deployment))
-deployments
-
-# Identify the bottle associated with GI03FLMA
-Bottles["Target Asset"].unique()
-
-flmb_mask = Bottles["Target Asset"].apply(lambda x: True if "flmb" in x.lower() else False)
-gi03flmb_bot = Bottles[flmb_mask]
-gi03flmb_bot.head()
-
-# +
-# Plot the data
-fig, ax = plt.subplots(figsize=(12,8))
-
-scatter = ax.scatter(gi03flmb.time, gi03flmb.seawater_ph, c=gi03flmb.deployment)
-discrete = ax.plot(gi03flmb_bot["Start Time [UTC]"], gi03flmb_bot["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.set_ylabel("In-situ pH [Total Scale]", fontsize=16)
-ax.set_ylim((7.4, 8.4))
-ax.set_title(gi03flmb.id, fontsize=16)
-#ax.set_xlabel("Date", fontsize=16)
-ax.grid()
-
-# Generate the figure legend
-marker = scatter.legend_elements()[0]
-marker.append(discrete[0])
-label = ["Deployment " + x for x in scatter.legend_elements()[1]]
-label.append("Discrete Water Sample")
-legend =(marker, label)
-legend1 = ax.legend(*legend, fontsize=12, edgecolor="black")
-
-fig.autofmt_xdate()
-# -
-
-gi03flmb.lat, gi03flmb.lon
-
-gi03flmb_bot[gi03flmb_bot["Calculated pH"].notna()][["Cruise", "Start Time [UTC]"]]
-
-# **Deployment 1**
-
-flmb_bot1 = gi03flmb_bot[gi03flmb_bot["Calculated pH"].notna()].loc[[217, 241]]
-flmb_dep1 = gi03flmb.where(gi03flmb.deployment == 1, drop=True)
-flmb_dep1_dif = flmb_dep1.where(flmb_dep1.mask.astype(bool), drop=True).diff("time")
-flmb_dep1_avg, flmb_dep1_std = (flmb_dep1_dif.seawater_ph.values.mean(), flmb_dep1_dif.seawater_ph.values.std())
-
-flmb_dep1_avg, flmb_dep1_std
-
-# +
-fig, ax = plt.subplots(figsize=(12, 8))
-
-scatter = ax.plot(flmb_dep1.time, flmb_dep1.seawater_ph, marker=".", c="tab:blue")
-fill = ax.fill_between(flmb_dep1.time, flmb_dep1.seawater_ph-flmb_dep1_std*1.96, 
-                       flmb_dep1.seawater_ph+flmb_dep1_std*1.96, alpha=0.5)
-discrete = ax.plot(flmb_bot1["Start Time [UTC]"], flmb_bot1["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.legend(["PHSEN","Discrete Samples"], fontsize=12)
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.set_title(f"{flmb_dep1_dif.id} Deployment 1", fontsize=16)
-fig.autofmt_xdate()
-# -
-
-np.min(flmb_dep1.time), np.max(flmb_dep1.time)
-
-flmb_bot1
-
-# +
-# Do the deployment
-#deploy_bot = flma_bot4.loc[428]
-recover_bot = flmb_bot1
-
-flmb_dep1_deploy = flmb_dep1.sel(time=slice("2014-09-16","2014-09-20"))
-flmb_dep1_recover = flmb_dep1.sel(time=slice("2015-08-10","2015-08-21"))
-
-# +
-fig, ax = plt.subplots(figsize=(12,8))
-
-ax.plot(flmb_dep1_recover.time, flmb_dep1_recover.seawater_ph, marker=".", c="tab:blue")
-ax.fill_between(flmb_dep1_recover.time, flmb_dep1_recover.seawater_ph-flmb_dep1_std*1.96, 
-                 flmb_dep1_recover.seawater_ph+flmb_dep1_std*1.96, alpha=0.5)
-ax.plot(recover_bot["Start Time [UTC]"], recover_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.legend(["PHSEN", "Discrete Samples"], loc="lower right", fontsize=12)
-ax.set_title("Recovery")
-
-fig.autofmt_xdate()
-# -
-
-# **Deployment 2**
-
-flmb_bot2 = gi03flmb_bot[gi03flmb_bot["Calculated pH"].notna()].loc[[217, 241, 336]]
-flmb_dep2 = gi03flmb.where(gi03flmb.deployment == 2, drop=True)
-flmb_dep2_dif = flmb_dep2.where(flmb_dep2.mask.astype(bool), drop=True).diff("time")
-flmb_dep2_avg, flmb_dep2_std = (flmb_dep2_dif.seawater_ph.values.mean(), flmb_dep2_dif.seawater_ph.values.std())
-
-flmb_dep2_avg, flmb_dep2_std
-
-# +
-fig, ax = plt.subplots(figsize=(12, 8))
-
-scatter = ax.plot(flmb_dep2.time, flmb_dep2.seawater_ph, marker=".", c="tab:blue")
-fill = ax.fill_between(flmb_dep2.time, flmb_dep2.seawater_ph-flmb_dep2_std*1.96, 
-                       flmb_dep2.seawater_ph+flmb_dep2_std*1.96, alpha=0.5)
-discrete = ax.plot(flmb_bot2["Start Time [UTC]"], flmb_bot2["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.legend(["PHSEN","Discrete Samples"], fontsize=12)
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.set_title(f"{flmb_dep2_dif.id} Deployment 2", fontsize=16)
-ax.set_ylim((8.0, 8.2))
-fig.autofmt_xdate()
-# -
-
-np.min(flmb_dep2.time), np.max(flmb_dep2.time)
-
-flmb_bot2
-
-# +
-# Do the deployment
-deploy_bot = flmb_bot2.iloc[0:2]
-recover_bot = flmb_bot2.iloc[2]
-
-flmb_dep2_deploy = flmb_dep2.sel(time=slice("2015-08-21","2015-08-25"))
-flmb_dep2_recover = flmb_dep2.sel(time=slice("2016-07-07","2016-07-14"))
-# -
-
-deploy_bot
-
-# +
-fig, (ax0, ax1) = plt.subplots(ncols=2, nrows=1, figsize=(12,8))
-
-ax0.plot(flmb_dep2_deploy.time, flmb_dep2_deploy.seawater_ph, marker=".", c="tab:blue")
-ax0.fill_between(flmb_dep2_deploy.time, flmb_dep2_deploy.seawater_ph-flmb_dep2_std*1.96, 
-                 flmb_dep2_deploy.seawater_ph+flmb_dep2_std*1.96, alpha=0.5)
-ax0.plot(deploy_bot["Start Time [UTC]"], deploy_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax0.grid()
-ax0.set_ylabel("pH [Total Scale]", fontsize=16)
-ax0.legend(["PHSEN", "Discrete Samples"], loc="lower right", fontsize=12)
-ax0.set_title("Deployment")
-
-
-ax1.plot(flmb_dep2_recover.time, flmb_dep2_recover.seawater_ph, marker=".", c="tab:blue")
-ax1.fill_between(flmb_dep2_recover.time, flmb_dep2_recover.seawater_ph-flmb_dep2_std*1.96, 
-                 flmb_dep2_recover.seawater_ph+flmb_dep2_std*1.96, alpha=0.5)
-ax1.plot(recover_bot["Start Time [UTC]"], recover_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax1.grid()
-ax1.set_title("Recovery")
-
-fig.autofmt_xdate()
-# -
-
-# **Deployment 3**
-
-flmb_bot3 = gi03flmb_bot[gi03flmb_bot["Calculated pH"].notna()].loc[[336, 417]]
-flmb_dep3 = gi03flmb.where(gi03flmb.deployment == 3, drop=True)
-flmb_dep3_dif = flmb_dep3.where(flmb_dep3.mask.astype(bool), drop=True).diff("time")
-flmb_dep3_avg, flmb_dep3_std = (np.nanmean(flmb_dep3_dif.seawater_ph.values), np.nanstd(flmb_dep3_dif.seawater_ph.values))
-
-flmb_dep3_avg, flmb_dep3_std
-
-# +
-fig, ax = plt.subplots(figsize=(12, 8))
-
-scatter = ax.plot(flmb_dep3.time, flmb_dep3.seawater_ph, marker=".", c="tab:blue")
-fill = ax.fill_between(flmb_dep3.time, flmb_dep3.seawater_ph-flmb_dep3_std*1.96, 
-                       flmb_dep3.seawater_ph+flmb_dep3_std*1.96, alpha=0.5)
-discrete = ax.plot(flmb_bot3["Start Time [UTC]"], flmb_bot3["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.legend(["PHSEN","Discrete Samples"], fontsize=12)
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.set_title(f"{flmb_dep3_dif.id} Deployment 3", fontsize=16)
-fig.autofmt_xdate()
-# -
-
-np.min(flmb_dep3.time), np.max(flmb_dep3.time)
-
-flmb_bot3
-
-# +
-# Do the deployment
-deploy_bot = flmb_bot3.iloc[0]
-recover_bot = flmb_bot3.iloc[1]
-
-flmb_dep3_deploy = flmb_dep3.sel(time=slice("2016-07-14","2016-07-18"))
-flmb_dep3_recover = flmb_dep3.sel(time=slice("2017-08-03","2017-08-08"))
-
-# +
-fig, (ax0, ax1) = plt.subplots(ncols=2, nrows=1, figsize=(12,8))
-
-ax0.plot(flmb_dep3_deploy.time, flmb_dep3_deploy.seawater_ph, marker=".", c="tab:blue")
-ax0.fill_between(flmb_dep3_deploy.time, flmb_dep3_deploy.seawater_ph-flmb_dep3_std*1.96, 
-                 flmb_dep3_deploy.seawater_ph+flmb_dep3_std*1.96, alpha=0.5)
-ax0.plot(deploy_bot["Start Time [UTC]"], deploy_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax0.grid()
-ax0.set_ylabel("pH [Total Scale]", fontsize=16)
-ax0.legend(["PHSEN", "Discrete Samples"], loc="lower right", fontsize=12)
-ax0.set_title("Deployment")
-
-
-ax1.plot(flmb_dep3_recover.time, flmb_dep3_recover.seawater_ph, marker=".", c="tab:blue")
-ax1.fill_between(flmb_dep3_recover.time, flmb_dep3_recover.seawater_ph-flmb_dep3_std*1.96, 
-                 flmb_dep3_recover.seawater_ph+flmb_dep3_std*1.96, alpha=0.5)
-ax1.plot(recover_bot["Start Time [UTC]"], recover_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax1.grid()
-ax1.set_title("Recovery")
-
-fig.autofmt_xdate()
-# -
-
-# **Deployment 4**
-
-flmb_bot4 = gi03flmb_bot[gi03flmb_bot["Calculated pH"].notna()].loc[[417]]
-flmb_dep4 = gi03flmb.where(gi03flmb.deployment == 4, drop=True)
-flmb_dep4_dif = flmb_dep4.where(flmb_dep4.mask.astype(bool), drop=True).diff("time")
-flmb_dep4_avg, flmb_dep4_std = (flmb_dep4_dif.seawater_ph.values.mean(), flmb_dep4_dif.seawater_ph.values.std())
-
-flmb_dep4_avg, flmb_dep4_std
-
-# +
-fig, ax = plt.subplots(figsize=(12, 8))
-
-scatter = ax.plot(flmb_dep4.time, flmb_dep4.seawater_ph, marker=".", c="tab:blue")
-fill = ax.fill_between(flmb_dep4.time, flmb_dep4.seawater_ph-flmb_dep4_std*1.96, 
-                       flmb_dep4.seawater_ph+flmb_dep4_std*1.96, alpha=0.5)
-discrete = ax.plot(flmb_bot4["Start Time [UTC]"], flmb_bot4["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.legend(["PHSEN","Discrete Samples"], fontsize=12)
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.set_title(f"{flmb_dep4_dif.id} Deployment 4", fontsize=16)
-fig.autofmt_xdate()
-# -
-
-np.min(flmb_dep4.time), np.max(flmb_dep4.time)
-
-flmb_bot4
-
-# +
-# Do the deployment
-deploy_bot = flmb_bot4.iloc[0]
-#recover_bot = flmb_bot3.iloc[1]
-
-flmb_dep4_deploy = flmb_dep4.sel(time=slice("2017-08-12","2017-08-17"))
-#flmb_dep3_recover = flmb_dep3.sel(time=slice("2017-08-03","2017-08-08"))
-
-# +
-fig, ax = plt.subplots(figsize=(12,8))
-
-ax.plot(flmb_dep4_deploy.time, flmb_dep4_deploy.seawater_ph, marker=".", c="tab:blue")
-ax.fill_between(flmb_dep4_deploy.time, flmb_dep4_deploy.seawater_ph-flmb_dep4_std*1.96, 
-                 flmb_dep4_deploy.seawater_ph+flmb_dep4_std*1.96, alpha=0.5)
-ax.plot(deploy_bot["Start Time [UTC]"], deploy_bot["Calculated pH"],
-         marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.legend(["PHSEN", "Discrete Samples"], loc="lower right", fontsize=12)
-ax.set_title("Deployment")
-
-fig.autofmt_xdate()
-# -
-
-
-
-# **Deployment 5**
-
-flmb_bot5 = gi03flmb_bot[gi03flmb_bot["Calculated pH"].notna()].loc[[417]]
-flmb_dep5 = gi03flmb.where(gi03flmb.deployment == 5, drop=True)
-flmb_dep5_dif = flmb_dep5.where(flmb_dep5.mask.astype(bool), drop=True).diff("time")
-flmb_dep5_avg, flmb_dep5_std = (flmb_dep5_dif.seawater_ph.values.mean(), flmb_dep5_dif.seawater_ph.values.std())
-
-flmb_dep5_avg, flmb_dep5_std
-
-# +
-fig, ax = plt.subplots(figsize=(12, 8))
-
-scatter = ax.plot(flmb_dep5.time, flmb_dep5.seawater_ph, marker=".", c="tab:blue")
-fill = ax.fill_between(flmb_dep5.time, flmb_dep5.seawater_ph-flmb_dep5_std*1.96, 
-                       flmb_dep5.seawater_ph+flmb_dep5_std*1.96, alpha=0.5)
-discrete = ax.plot(flmb_bot5["Start Time [UTC]"], flmb_bot5["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.grid()
-ax.legend(["PHSEN","Discrete Samples"], fontsize=12)
-ax.set_ylabel("pH [Total Scale]", fontsize=16)
-ax.set_title(f"{flmb_dep5_dif.id} Deployment 5", fontsize=16)
-fig.autofmt_xdate()
-# -
-
-# ### GI01SUMO-RII11-02-PHSENE041
-
-deployments = sorted(np.unique(gi03flma.deployment))
-deployments
-
-# Identify the bottle associated with GI03FLMA
-Bottles["Target Asset"].unique()
-
-gi01sumo_mask = Bottles["Target Asset"].apply(lambda x: True if "sumo" in x.lower() else False)
-gi01sumo_bot = Bottles[gi01sumo_mask]
-gi01sumo_bot.head()
-
-# The GI01SUMO PHSENE041 is at 20 meters depth
-
-mask41 = (gi01sumo_bot["CTD Pressure [db]"] > 10) & (gi01sumo_bot["CTD Pressure [db]"] < 50)
-mask42 = gi01sumo_bot["CTD Pressure [db]"] > 60
-
-gi01sumo41_bot = gi01sumo_bot[mask41]
-gi01sumo42_bot = gi01sumo_bot[mask42]
-
-# +
-# Plot the data
-fig, ax = plt.subplots(figsize=(12,8))
-
-scatter = ax.scatter(gi01sumo41.time, gi01sumo41.seawater_ph, c=gi01sumo41.deployment)
-discrete = ax.plot(gi01sumo41_bot["Start Time [UTC]"], gi01sumo41_bot["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.set_ylabel("In-situ pH [Total Scale]", fontsize=16)
-ax.set_ylim((7.4, 8.4))
-ax.set_title(gi01sumo41.id, fontsize=16)
-#ax.set_xlabel("Date", fontsize=16)
-ax.grid()
-
-# Generate the figure legend
-marker = scatter.legend_elements()[0]
-marker.append(discrete[0])
-label = ["Deployment " + x for x in scatter.legend_elements()[1]]
-label.append("Discrete Water Sample")
-legend =(marker, label)
-legend1 = ax.legend(*legend, fontsize=12, edgecolor="black")
-
-fig.autofmt_xdate()
-# -
-
-gi01sumo41.id
-
-# +
-# Plot the data
-fig, ax = plt.subplots(figsize=(12,8))
-
-scatter = ax.scatter(gi01sumo42.time, gi01sumo42.seawater_ph, c=gi01sumo42.deployment)
-discrete = ax.plot(gi01sumo42_bot["Start Time [UTC]"], gi01sumo42_bot["Calculated pH"],
-             marker=".", linestyle="", markersize=20, color="tab:red")
-ax.set_ylabel("In-situ pH [Total Scale]", fontsize=16)
-ax.set_ylim((7.4, 8.4))
-ax.set_title(gi01sumo42.id, fontsize=16)
-#ax.set_xlabel("Date", fontsize=16)
-ax.grid()
-
-# Generate the figure legend
-marker = scatter.legend_elements()[0]
-marker.append(discrete[0])
-label = ["Deployment " + x for x in scatter.legend_elements()[1]]
-label.append("Discrete Water Sample")
-legend =(marker, label)
-legend1 = ax.legend(*legend, fontsize=12, edgecolor="black")
-
-fig.autofmt_xdate()
-# -
-
-gi01sumo42.lat, gi01sumo42.lon
+# ---
+# ## Data Analysis
 
 

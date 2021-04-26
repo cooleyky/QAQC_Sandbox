@@ -510,6 +510,8 @@ refdes = "CP01CNSM-MFD35-05-PCO2WB000"
 method = "recovered_inst"
 stream = "pco2w_abc_instrument"
 
+OOINet.get
+
 datasets = ['/'.join((basepath, refdes, method, stream, dset)) for dset in os.listdir('/'.join((basepath, refdes, method, stream)))]
 datasets = sorted([dset for dset in datasets if "blank" not in dset])
 CNSM_PCO2W = load_datasets(datasets)

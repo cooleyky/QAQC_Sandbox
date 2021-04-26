@@ -16,6 +16,7 @@
 
 # # Bottle Processing
 # Author: Andrew Reed
+# Date: 2021-01-12
 #
 # ### Motivation:
 # Independent verification of the suite of physical and chemical observations provided by OOI are critical for the observations to be of use for scientifically valid investigations. Consequently, CTD casts and Niskin water samples are made during deployment and recovery of OOI platforms, vehicles, and instrumentation. The water samples are subsequently analyzed by independent labs for  comparison with the OOI telemetered and recovered data.
@@ -50,47 +51,27 @@ sbe_name_map.head()
 column_order = pd.read_excel("/media/andrew/Files/Water_Sampling/column_order.xlsx")
 column_order = column_order.columns
 
-Summary = pd.DataFrame(columns=column_order)
-Summary
-
 # ---
 # Set the directory paths to where the relevant information is stored:
 
 basepath = "/media/andrew/Files/Water_Sampling/"
-array = 'Coastal_Pioneer_Array/'
-
-# List the cruises:
-
-for cruise in sorted(os.listdir(basepath + array)):
-    print(cruise)
-
-cruise = "Pioneer-12_AR34_2019-04-04" + "/" + "Ship_Data/"
-
-# List the legs and water sampling directories:
-
-for leg in sorted(os.listdir(basepath + array + cruise)):
-    print(leg)
-
-# water = "Water Sampling/"
-ctd = "Leg_2/ctd/"
-# ctd = "at26-30/" + "ctd/"
-
-# List the CTD bottle data:
-
-for file in sorted(os.listdir(basepath + array + cruise + ctd)):
-    print(file)
-
-# #### Load Bottle Data
-
-BTL_DIR = basepath + array + cruise + ctd
-
-os.listdir(BTL_DIR)
+array = "Coastal_Pioneer_Array/"
+cruise = "Pioneer-02_KN217_2014-04-11/"
+water_sampling = "Ship_Data/Water_Sampling/Cleaned/"
+ctd = "Ship_Data/ctd/"
 
 # ---
 # ## BTL Data
 # First, load in the bottle data from the CTD casts. This data should already have been processed using the SeaBird Processing software to produce the relevant .btl files.
 
 from bottle_utils import Cast
+
+# Get the directory where the **```.btl```** files are:
+
+BTL_DIR = basepath + array + cruise + ctd
+for file in os.listdir(BTL_DIR):
+    if file.endswith(".btl"):
+        print(file)
 
 # Iterate through the directory where the bottle files are stored, parsing them into a single dataframe:
 
@@ -110,7 +91,7 @@ for file in os.listdir(BTL_DIR):
         cast = Cast(cast_no)
         
         # Parse the cast data
-        cast.parse_cast(BTL_DIR+file)
+        cast.parse_cast(BTL_DIR+"/"+file)
         
         # Add in the cast number
         df = pd.DataFrame(cast.data)
@@ -125,35 +106,51 @@ for file in os.listdir(BTL_DIR):
         
 Bottles.head()
 
-# +
-file = "ar34b022.btl"
 
-# Get the cast number from the file name
-cast_no = file[file.find(".")-3:file.find(".")]
-try:
-    cast_no = int(cast_no)
-except ValueError:
-    cast_no = cast_no.lstrip("0")
-    
- # Initialize the CTD Cast object
-cast = Cast(cast_no)
-
-# Parse the cast data
-cast.parse_cast(BTL_DIR+file)
 # -
 
-cast.data
+# Reformat the Start Longitude and Start Latitude to be decimal degrees and Bottle Closure Time to "YYYY-mm-ddTHH:MM:SS.000Z"
 
-Bottles["Longitude"] = Bottles["Longitude"].apply(lambda x: float(str(x)))
+# +
+def parse_start_latitude(x):
+    if "S" in x:
+        x = x.replace("N","").lstrip("0").strip().split()
+        x = float(x[0]) + float(x[1])/60
+        x = -1*x
+    elif "N" in x:
+        x = x.replace("N","").lstrip("0").strip().split()
+        x = float(x[0]) + float(x[1])/60
+    else:
+        pass
+    
+    return x
 
-Bottles["Longitude"]
+def parse_start_longitude(x):
+    if "W" in x:
+        x = x.replace("N","").lstrip("0").strip().split()
+        x = float(x[0]) + float(x[1])/60
+        x = -1*x
+    elif "E" in x:
+        x = x.replace("N","").lstrip("0").strip().split()
+        x = float(x[0]) + float(x[1])/60
+    else:
+        pass
+    
+    return x
 
 Bottles["Date Time"] = Bottles["Date Time"].apply(lambda x: pd.to_datetime(x).strftime("%Y-%m-%dT%H:%M:%S.000Z"))
 Bottles["Start Time [UTC]"] = Bottles["Start Time [UTC]"].apply(lambda x: pd.to_datetime(x).strftime("%Y-%m-%dT%H:%M:%S.000Z"))
-Bottles;
+Bottles["Start Latitude [degrees]"] = Bottles["Start Latitude [degrees]"].apply(lambda x: parse_start_latitude(x))
+Bottles["Start Longitude [degrees]"] = Bottles["Start Longitude [degrees]"].apply(lambda x: parse_start_longitude(x))
+Bottles["CStarTr0"] = Bottles["CStarTr0"].apply(lambda x: x.replace("(avg)","").strip())
+Bottles["Filename"] = Bottles["Filename"].apply(lambda x: x.split("\\")[-1])
+
+Bottles.head()
+# -
+
+# Rename the column title using the sbe_name_mapping
 
 # +
-# Rename the column title using the sbe_name_mapping 
 for colname in list(Bottles.columns.values):
     try:
         fullname = list(sbe_name_map[sbe_name_map['Short Name'].apply(lambda x: str(x).lower() == colname.lower()) == True]['Full Name'])[0]
@@ -163,57 +160,55 @@ for colname in list(Bottles.columns.values):
     
 Bottles.head()
 # -
-Bottles["Cast"].unique()
+# Add the Cruise ID/Name to the Bottle Data
 
-Bottles[Bottles["Cast"] == '022']
+Bottles.insert(0, "Cruise", "KN217")
+Bottles.head()
+
+# +
+# Try grouping the 
+# -
+
+
 
 # Save the bottle data
 
 
+cruise
+
 date = datetime.datetime.now(tz=pytz.UTC).strftime("%Y-%m-%d")
-filename = f"Station_Papa-07_SKQ201920S_CTD_Bottle_Data_{date}_Ver_1-00.xlsx"
+filename = f"Pioneer-03_Leg-1_KN222_CTD_Bottle_Data_{date}_ACR.xlsx"
 filename
 
-SAVE_PATH = basepath + array + cruise + "Water_Sampling"
+SAVE_PATH = basepath + array + cruise + water_sampling
 os.listdir(SAVE_PATH)
 
-SAVE_FILE = SAVE_PATH + "/" + filename
+SAVE_FILE = SAVE_PATH + filename
 SAVE_FILE
 
 Bottles.to_excel(SAVE_FILE, index=False)
+
+# Rename the Bottle Columns with "BOT: " as a header
+
+for col in Bottles.columns:
+    Bottles.rename(columns={col: "BOT: " + col.strip()}, inplace=True)
+Bottles.head()
 
 # ---
 # ## CTD Log 
 #
 # First, find the directory of where to find the CTD Log for the cruise:
 
-for file in sorted(os.listdir(basepath + array + cruise + water)):
+LOG_DIR = "/".join((basepath, array, cruise, water_sampling))
+for file in sorted(os.listdir(LOG_DIR)):
     if "CTD" in file:
         print(file)
 
 # Next, set the paths to load the Log files for the cruise(s):
 
-LOG_FILE_A = basepath + array + cruise + water + "Pioneer-04_AT-27A_CTD_Sampling_Log_2020-05-11_ver_1-01.xlsx"
-LOG_FILE_B = basepath + array + cruise + water + "Pioneer-04_AT-27B_CTD_Sampling_Log_2020-05-11_ver_1-01.xlsx"
-
-Log_A = pd.read_excel(LOG_FILE_A, sheet_name="Summary")
-Log_A.head()
-
-Log_B = pd.read_excel(LOG_FILE_B, sheet_name="Summary")
-Log_B.head()
-
-# If the descriptors are in the first row, drop it:
-
-Log_A = Log_A.drop(labels=0)
-Log_B = Log_B.drop(labels=0)
-
-# Clean up the entries for the salts bottles:
-
-# +
-Log_A["Salts Bottle #"] = Log_A["Salts Bottle #"].apply(lambda x: x.replace("/",",") if type(x) == str else x)
-
-Log["Oxygen Bottle #"] = Log["Oxygen Bottle #"].apply(lambda x: x.replace("/",",") if type(x) == str else x)
-# -
+filename = "Pioneer-02_KN217_CTD_Sampling_Log_2021-01-06_Ver_1-01.xlsx"
+Log = pd.read_excel(LOG_DIR + "/" + filename, sheet_name="Summary")
+Log.head()
 
 # Clean up headers:
 
@@ -261,10 +256,25 @@ def combine_datetime(x, y):
 
 
 Log["Start DateTime"] = Log[["Start Date","Start Time"]].apply(lambda x: combine_datetime(x[0], x[1]), axis=1)
+Log = Log.drop(columns=["Start Date", "Start Time"])
+Log.head()
+
+# Clean up & reformat the Start Latitude, Start Longitude, and Start DateTime:
+
+Log["Start Latitude"] = Log["Start Latitude"].apply(lambda x: parse_start_latitude(x))
+Log["Start Longitude"] = Log["Start Longitude"].apply(lambda x: parse_start_longitude(x))
+Log["Start DateTime"] = Log["Start DateTime"].apply(lambda x: pd.to_datetime(x).strftime("%Y-%m-%dT%H:%M:%S.000Z"))
+
+# Rename Station-Cast and Niskin to match other columns
+
+Log = Log.rename(columns={
+    "Station-Cast #": "Station ID",
+    "Niskin #": "Niskin ID"
+})
 
 
 # ---
-# ## Merge Log and Bottle Sampling
+# ## Discrete Bottle Sampling Data
 
 def clean_bottle_pos(x):
     if pd.isnull(x):
@@ -275,7 +285,7 @@ def clean_bottle_pos(x):
 
 
 Log["Niskin #"] = Log["Niskin #"].apply(lambda x: clean_bottle_pos(x))
-Bottles["Bottle Position"] = Bottles["Bottle Position"].apply(lambda x: clean_bottle_pos(x))
+#Bottles["Bottle Position"] = Bottles["Bottle Position"].apply(lambda x: clean_bottle_pos(x))
 
 # ---
 # ## Salinity & Oxygen Data
@@ -284,76 +294,768 @@ Bottles["Bottle Position"] = Bottles["Bottle Position"].apply(lambda x: clean_bo
 # **Salinity** <br>
 # Load the Salinity data
 
-Salinity = pd.read_excel(SAL_FILE, sheet_name="AT30-01")
+LOG_DIR = "/".join((basepath, array, cruise, water_sampling))
+for file in sorted(os.listdir(LOG_DIR)):
+    if "Sal" in file:
+        print(file)
+
+filename = "Pioneer-02_KN217_Salinity_Sample_Data_2021-01-06_Ver_1-00.xlsx"
+SAL_FILE = basepath + array + cruise + water_sampling + filename
+
+Salinity = pd.read_excel(SAL_FILE, sheet_name="Salinity")
 Salinity.head()
 
 # **Oxygen** <br>
 # Load the Oxygen data
 
-Oxygen = pd.read_excel(OXY_FILE, sheet_name="AT30-01")
+LOG_DIR = "/".join((basepath, array, cruise, water_sampling))
+for file in sorted(os.listdir(LOG_DIR)):
+    if "Oxy" in file:
+        print(file)
+
+filename = "Pioneer-02_KN217_Oxygen_Sample_Data_2021-01-06_Ver_1-00.xlsx"
+OXY_FILE = basepath + array + cruise + water_sampling + filename
+
+Oxygen = pd.read_excel(OXY_FILE, sheet_name="Oxygen")
 Oxygen.head()
 
 # ---
 # ## Nutrients Data
 # Sometimes the nutrient data needs to be 
 
-Nutrients = pd.read_excel(NUT_FILE, sheet_name="Summary", header=2)
-Nutrients
+LOG_DIR = "/".join((basepath, array, cruise, water_sampling))
+for file in sorted(os.listdir(LOG_DIR)):
+    if "Nut" in file:
+        print(file)
 
-# Get the Niskin and Cast Numbers based on the Sample-ID
+filename = "Pioneer-02_KN217_Nutrients_Sample_Data_2020-12-30_Ver_1-01.xlsx"
+NUT_FILE = basepath + array + cruise + water_sampling + filename
 
-Nuts_keys = Log[["Station-Cast #", "Niskin #", "Nitrate Bottle 1"]].dropna().set_index(keys="Nitrate Bottle 1")
-Nutrients = Nutrients.set_index(keys="Sample ID")
-Nutrients = Nutrients.merge(Nuts_keys, left_index=True, right_index=True).reset_index().drop(columns=["Sample ID"])
-Nutrients
+Nutrients = pd.read_excel(NUT_FILE)#, sheet_name="Summary")
+Nutrients.head()
 
 # ---
 # ## Chlorophyll Data
 
-Chlorophyll = pd.read_excel(CHL_FILE)
+LOG_DIR = "/".join((basepath, array, cruise, water_sampling))
+for file in sorted(os.listdir(LOG_DIR)):
+    if "Chl" in file:
+        print(file)
+
+filename = "Pioneer-02_KN217_Chlorophyll_Sample_Data_2020-03-30_ver_1-01.xlsx"
+CHL_FILE = basepath + array + cruise + water_sampling + filename
+
+Chlorophyll = pd.read_excel(CHL_FILE)#, sheet_name="chl")
 
 Chlorophyll.columns
 
 # Get only the relevant Chlorophyll data
-columns = ["Cast", "Niskin", "Chl ug_per_L", "Phaeo ug_per_L", "Comments"]
+columns = ["Cruise","Cast", "Niskin", "Chl ug_per_L", "Phaeo ug_per_L", "Comments"]
 Chlorophyll = Chlorophyll[columns]
 Chlorophyll.head()
 
 # ## DIC
 
-DIC = pd.read_excel(DIC_FILE, header=1)
+LOG_DIR = "/".join((basepath, array, cruise, water_sampling))
+for file in sorted(os.listdir(LOG_DIR)):
+    if "DIC" in file:
+        print(file)
+
+filename = "Pioneer-02_KN217_DIC_Sample_Data_2015-10-29_ver_1-00.xlsx"
+DIC_FILE = basepath + array + cruise + water_sampling + filename
+
+DIC = pd.read_excel(DIC_FILE, sheet_name="OCADS")#, header=1)
 
 DIC.columns
 
-columns = ["CAST_NO", "NISKIN_NO", 'DIC_UMOL_KG', 'DIC_FLAG_W', 'TA_UMOL_KG', 'TA_FLAG_W', 'PH_TOT_MEA', 'TMP_PH_DEG_C', 'PH_FLAG_W']
+columns = ["CRUISE_ID", "CAST_NO", "NISKIN_NO", 'DIC_UMOL_KG', 'DIC_FLAG_W', 'TA_UMOL_KG', 'TA_FLAG_W', 'PH_TOT_MEA', 'TMP_PH_DEG_C', 'PH_FLAG_W']
 DIC = DIC[columns]
 DIC.head()
+
+# # MERGE SHIT
+
+# Merge oxygen and salinity
+Oxygen.head()
+
+Salinity.head()
+
+Discrete = Oxygen.merge(Salinity,
+                        left_on=["Cruise ID", "Station ID", "Niskin ID"],
+                        right_on=["Cruise ID", "Station ID", "Niskin ID"],
+                        how="outer")
+drop_cols = ["Sample ID_x", "Sample ID_y"]
+Discrete = Discrete.drop(columns=drop_cols)
+Discrete.head()
+
+# Merge the Discrete Oxygen and Salinity with the Nutrients
+Discrete = Discrete.merge(Nutrients,
+                          left_on=["Cruise ID", "Station ID", "Niskin ID"],
+                          right_on=["Cruise ID", "Station ID", "Niskin ID"],
+                          how="outer")
+drop_cols = ["Sample ID"]
+Discrete = Discrete.drop(columns=drop_cols)
+Discrete.head()
+
+# +
+# Merge the Discrete data with the Chlorophyll
+Chlorophyll = Chlorophyll.rename(columns={
+    "Cruise": "Cruise ID",
+    "Cast": "Station ID",
+    "Niskin": "Niskin ID",
+    "Comments": "Chl Comments"
+})
+
+Discrete = Discrete.merge(Chlorophyll,
+                          left_on=["Cruise ID", "Station ID", "Niskin ID"],
+                          right_on=["Cruise ID", "Station ID", "Niskin ID"],
+                          how="outer")
+Discrete.head()
+
+# +
+# Merge the DIC
+DIC = DIC.rename(columns={
+    "CRUISE_ID": "Cruise ID",
+    "CAST_NO": "Station ID",
+    "NISKIN_NO": "Niskin ID",
+})
+
+Discrete = Discrete.merge(DIC,
+                          left_on=["Cruise ID", "Station ID", "Niskin ID"],
+                          right_on=["Cruise ID", "Station ID", "Niskin ID"],
+                          how="outer")
+Discrete.head()
+
+
+# -
+
+# Try groupby - explode to get unique values for each Cruise - Station - Niskin
+
+def unique_non_null(s):
+    
+    x = s.dropna()
+    if len(x) == 0:
+        return np.nan
+    else:
+        return x.unique()
+
+
+Discrete = Discrete.groupby(by=["Cruise ID", "Station ID", "Niskin ID"]).agg(unique_non_null)
+
+Discrete = Discrete.reset_index()
+Discrete
+
+Bottles.head()
+
+Log.head()
+
+Discrete["Station ID"] = Discrete["Station ID"].apply(lambda x: str(int(x)).zfill(3))
+Discrete.head()
+
+# +
+# Get the union of all Stations and Niskin values
+merge_cols = ["Cruise ID", "Station ID", "Niskin ID"]
+Summary = pd.merge(Bottles[merge_cols],
+                   Log[merge_cols],
+                   left_on=merge_cols,
+                   right_on=merge_cols,
+                   how="outer")
+
+Summary = Summary.merge(Discrete[merge_cols],
+                        left_on=merge_cols,
+                        right_on=merge_cols,
+                        how="outer")
+Summary
+# -
+
+# Merge the Bottle Data
+Bottles.head()
+
+Summary = Summary.merge(Bottles,
+                        left_on=merge_cols,
+                        right_on=merge_cols,
+                        how="outer")
+Summary.head()
+
+Summary.tail()
+
+# Merge the Log Data
+Summary = Summary.merge(Discrete,
+                        left_on=merge_cols,
+                        right_on=merge_cols,
+                        how="left")
+
+Summary.head()
+
+Summary.tail()
+
+
+
+# +
+# Merge the Metadata
+metadata_columns = ["Cruise ID", "Station ID", "Target Station", "Start Latitude", "Start Longitude",
+                    "Bottom Depth [m]", "Start DateTime"]
+
+metadata = Log[metadata_columns]
+
+metadata = metadata.groupby(by=["Cruise ID", "Station ID"]).agg(unique_non_null).reset_index()
+
+metadata.head()
+# -
+
+Summary = Summary.merge(metadata,
+                        left_on=["Cruise ID", "Station ID"],
+                        right_on=["Cruise ID", "Station ID"],
+                        how="outer")
+Summary.head()
+
+# Fill in the 
+Summary["Start Time [UTC]"] = Summary["Start Time [UTC]"].fillna(Summary["Start DateTime"])
+Summary["Start Longitude [degrees]"] = Summary["Start Longitude [degrees]"].fillna(Summary["Start Longitude"])
+Summary["Start Latitude [degrees]"] = Summary["Start Latitude [degrees]"].fillna(Summary["Start Latitude"])
+
+Summary.head()
+
+Summary.tail()
+
+
+
+
+
+
+
+# ### Merge the Bottle and Discrete Data
+
+Bottles = Bottles.rename(columns={
+    "Cruise": "Cruise ID",
+    "Cast": "Station ID",
+    "Bottle Position": "Niskin ID"
+})
+Bottles["Niskin ID"] = Bottles["Niskin ID"].apply(lambda x: int(x))
+Bottles.head()
+
+Discrete["Station ID"] = Discrete["Station ID"].apply(lambda x: str(int(x)).zfill(3))
+Discrete.head()
+
+Summary = Bottles.merge(Discrete,
+                        left_on=["Cruise ID", "Station ID", "Niskin ID"],
+                        right_on=["Cruise ID", "Station ID", "Niskin ID"],
+                        how="outer")
+Summary
+
+Summary.to_excel(basepath + array + cruise + water_sampling + "Summary.xlsx", index=False)
+
+Bottles.head()
+
+Log.head()
+
+
+
+
+
+
+
+# ## Metadata
+# Next, add on the metadata from the Log info
+
+Log.head()
+
+Comments = Log[["Cruise ID", "Station-Cast #", "Niskin #", "Comments"]]
+Comments = Comments.rename(columns={
+    "Station-Cast #": "Station ID",
+    "Niskin #": "Niskin ID"
+})
+Summary = Summary.merge(Comments,
+                        left_on=["Cruise ID", "Station ID", "Niskin ID"],
+                        right_on=["Cruise ID", "Station ID", "Niskin ID"],
+                        how="outer")
+
+# +
+metadata_columns = ["Cruise ID", "Station-Cast #", "Target Station", "Start Latitude", "Start Longitude",
+                    "Bottom Depth [m]", "Start DateTime"]
+
+metadata = Log[metadata_columns]
+metadata
+
+
+# -
+
+def unique_non_null(s):
+    x = s.dropna().unique()
+    if len(x) == 0:
+        x = np.nan
+    return x
+
+
+metadata = metadata.groupby(by=["Cruise ID", "Station-Cast #"]).agg(unique_non_null).reset_index()
+metadata = metadata.rename(columns={
+    "Station-Cast #": "Station ID"
+})
+metadata.head()
+
+Summary = Summary.merge(metadata,
+                        left_on=["Cruise ID", "Station ID"],
+                        right_on=["Cruise ID", "Station ID"],
+                        how="outer")
+Summary
+
+# Fill in the 
+Summary["Start Time [UTC]"] = Summary["Start Time [UTC]"].fillna(Summary["Start DateTime"])
+Summary["Start Longitude [degrees]"] = Summary["Start Longitude [degrees]"].fillna(Summary["Start Longitude"])
+Summary["Start Latitude [degrees]"] = Summary["Start Latitude [degrees]"].fillna(Summary["Start Latitude"])
+
+# Add in other missing data
+Log.columns
+
+name_map = {
+    "Cruise": "Cruise ID",
+    "Station": "Station ID",
+    "Target Asset": "Target Station",
+    "Start Latitude [degrees]": "Start Latitude [degrees]",
+    "Start Longitude [degrees]": "Start Longitude [degrees]",
+    "Start Time [UTC]": "Date Time",
+    "Cast": "Station ID",
+    "Cast Flag": None,
+    "Bottom Depth at Start Position [m]": "Bottom Depth [m]",
+    "CTD File": "Filename",
+    "CTD File Flag": None,
+    "Niskin/Bottle Position": "Niskin ID",
+    "Niskin Flag": None,
+    "CTD Bottle Closure Time [UTC]": "Date Time",
+    "CTD Pressure [db]": "Pressure, Digiquartz [db]",
+    "CTD Pressure Flag": None,
+    "CTD Depth [m]": "Depth [salt water, m]",
+    "CTD Latitude [deg]": "Latitude [deg]",
+    "CTD Longitude [deg]": "Longitude [deg]",
+    "CTD Temperature 1 [deg C]": "Temperature [ITS-90, deg C]",
+    "CTD Temperature 1 Flag": None,
+    "CTD Temperature 2 [deg C]": "Temperature, 2 [ITS-90, deg C]" ,
+    "CTD Temperature 2 Flag": None,
+    "CTD Conductivity 1 [S/m]": "Conductivity [S/m]",
+    "CTD Conductivity 1 Flag": None,
+    "CTD Conductivity 2 [S/m]":"Conductivity, 2 [S/m]",
+    "CTD Conductivity 2 Flag": None,
+    "CTD Salinity 1 [psu]": "Salinity, Practical [PSU]",
+    "CTD Salinity 2 [psu]": "Salinity, Practical, 2 [PSU]",
+    "CTD Oxygen, [mL/L]": "Oxygen, SBE 43 [ml/l]",
+    "CTD Oxygen Flag": None,
+    "CTD Oxygen Saturation [mL/L]": "Oxygen Saturation, Garcia & Gordon [ml/l]",
+    "CTD Fluorescence [mg/m^3]": None,
+    "CTD Fluorescence Flag": None,
+    "CTD Beam Attenuation [1/m]": "Beam Attenuation, WET Labs C-Star [1/m]",
+    "CTD Beam Transmission [%]": "Beam Transmission, WET Labs C-Star [%]",
+    "CTD Transmissometer Flag": None,
+    "CTD pH": None,
+    "CTD pH Flag": None,
+    "Discrete Oxygen [mL/L]": "Oxygen [mL/L]",
+    "Discrete Oxygen Flag": None,
+    "Discrete Oxygen Duplicate Flag": None,
+    "Discrete Chlorophyll [ug/L]": "Chl ug_per_L",
+    "Discrete Phaeopigment [ug/L]": "Phaeo ug_per_L",
+    "Discrete Fo/Fa Ratio": None,
+    "Discrete Fluorescence Flag": None,
+    "Discrete Fluorescence Duplicate Flag": None,
+    "Discrete Phosphate [uM]": "Phosphate [µmol/L]",
+    "Discrete Silicate [uM]": "Silicate [µmol/L]",
+    "Discrete Nitrate [uM]": "Nitrate [µmol/L]", #Nitrate+Nitrite [µmol/L]
+    "Discrete Nitrite [uM]": "Nitrite [µmol/L]",
+    "Discrete Ammonium [uM]": "Ammonium [µmol/L]",
+    "Discrete Nutrients Flag": None,
+    "Discrete Nutrients Replicate Flag": None,
+    "Discrete Salinity [psu]": "Salinity [psu]",
+    "Discrete Salinity Flag": None,
+    "Discrete Salinity Replicate Flag": None,
+    "Discrete Alkalinity [umol/kg]": "TA_UMOL_KG",
+    "Discrete Alkalinity Flag": "TA_FLAG_W",
+    "Discrete Alkalinity Replicate Flag": None,
+    "Discrete DIC [umol/kg]": "DIC_UMOL_KG",
+    "Discrete DIC Flag": "DIC_FLAG_W",
+    "Discrete DIC Replicate Flag": None,
+    "Discrete pCO2 [uatm]": None,
+    "Discrete pCO2 Analysis Temp [C]": None,
+    "Discrete pCO2 Flag": None,
+    "Discrete pH [Total scale]": "PH_TOT_MEA",
+    "Discrete pH Analysis Temp [C]": "TMP_PH_DEG_C",
+    "Discrete pH Flag": "PH_FLAG_W",
+    "Discrete pH Replicate Flag": None,
+    "Calculated Alkalinity [umol/kg]": None,
+    "Calculated DIC [umol/kg]": None,
+    "Calculated pCO2 [uatm]": None,
+    "Calculated pH": None,
+    "Calculated CO2aq [umol/kg]": None,
+    "Calculated Bicarb [umol/kg]": None,
+    "Calculated CO3 [umol/kg]": None,
+    "Calculated Omega-C": None,
+    "Calculated Omega-A": None,  
+    "Comments": "Comments",
+    "Chlorophyll Comments": "Chl Comments"
+}
+
+Final = pd.DataFrame(columns=name_map.keys())
+Final
+
+for key in name_map.keys():
+    if name_map.get(key) is None:
+        pass
+    else:
+        Final[key] = Summary[name_map.get(key)]
+
+Final
+
+# Determine duplicates
+Final["Duplicates"] = Final.duplicated(subset=["Cruise", "Station", "Niskin/Bottle Position"], keep=False)
+
+# Fill NaNs with -9999999
+Final = Final.fillna(value=-9999999)
+
+filename = basepath + array + cruise + water_sampling + "Pioneer-04_AT27A_Discrete_Sample_Summary_2021-01-19_ACR.xlsx"
+filename
+
+Final.to_excel(filename, index=False)
+
+# ## Merge the Bottle and Log Data
+
+for col in Bottles.columns:
+    Bottles.rename(columns={col: "BOT: " + col.strip()}, inplace=True)
+Bottles.head()
+
+for col in Log.columns:
+    Log.rename(columns={col: "LOG: " + col.strip()}, inplace=True)
+Log.head()
+
+Bot_Log = Bottles.merge(Log,
+                        left_on=["BOT: Cruise ID", "BOT: Cast", "BOT: Bottle Position"],
+                        right_on=["LOG: Cruise ID", "LOG: Station-Cast #", "LOG: Niskin #"],
+                        how="outer")
+Bot_Log.head()
+
+Bot_Log.columns
+
+# Fill in missing data
+Bot_Log["BOT: Cruise ID"] = Bot_Log["BOT: Cruise ID"].fillna(value=Bot_Log["LOG: Cruise ID"])
+Bot_Log["BOT: Cast"] = Bot_Log["BOT: Cast"].fillna(value=Bot_Log["LOG: Station-Cast #"])
+Bot_Log["BOT: Bottle Position"] = Bot_Log["BOT: Bottle Position"].fillna(value=Bot_Log["LOG: Niskin #"])
+Bot_Log['BOT: Start Time [UTC]'] = Bot_Log['BOT: Start Time [UTC]'].fillna(value=Bot_Log["LOG: Start DateTime"])
+Bot_Log['BOT: Start Longitude [degrees]'] = Bot_Log["BOT: Start Longitude [degrees]"].fillna(value=Bot_Log["LOG: Start Longitude"])
+Bot_Log['BOT: Start Latitude [degrees]'] = Bot_Log["BOT: Start Latitude [degrees]"].fillna(value=Bot_Log["LOG: Start Latitude"])
+
+# Drop some columns
+drop_cols = ["LOG: Cruise ID", "LOG: Station-Cast #", "LOG: Niskin #", "LOG: Start DateTime",
+             "LOG: Start Latitude", "LOG: Start Longitude", "LOG: Start Date", "LOG: Start Time"]
+Bot_Log = Bot_Log.drop(columns = drop_cols)
+Bot_Log
+
+# ## Merge the Salinity
+
+
+
+
 
 # ## Union of Casts and Niskins
 #
 # First, want to get the combination of all Casts and Niskin Bottle #s for the cruise. 
 
+# ## Begin Creating the Summary Sheet
+
+Summary["Cruise"] = casts_niskins["Cruise ID"]
+Summary["Station"] = casts_niskins["Cast"]
+Summary["Niskin/Bottle Position"] = casts_niskins["Niskin"]
+
+# ### Merge the Bottle Data to the KEYs
+
+for col in Bottles.columns:
+    Bottles.rename(columns={col: "BOT: " + col}, inplace=True)
+Bottles.columns
+
+Summary = Summary.merge(Bottles,
+                        left_on=["Cruise", "Station", "Niskin/Bottle Position"],
+                        right_on=["BOT: Cruise ID", "BOT: Cast", "BOT: Bottle Position"],
+                        how="outer")
+Summary.head()
+
+Summary.shape
+
+Summary.columns
+
 # +
-# First, get the casts and niskin numbers
-bot = Bottles[["Cast","Bottle Position"]]
-bot.rename(columns={"Cast": "Station", "Bottle Position": "Niskin/Bottle Position"}, inplace=True)
-log = Log[["Station-Cast #", "Niskin #"]]
-log.rename(columns={"Station-Cast #": "Station", "Niskin #":"Niskin/Bottle Position"}, inplace=True)
-
-# Concatentate the casts and bottles
-casts = bot.append(log, ignore_index=True)
-
-# Group the results by casts and get the unique Niskin bottle numbers
-casts = casts.groupby(by="Station").apply(np.unique)
-casts.name = "Niskin/Bottle Position"
-
-# Expand the unique cast-niskin combinations
-casts_niskins = pd.DataFrame(casts).explode(column="Niskin/Bottle Position").reset_index()
-
-# Drop NaNs from the Niskin/Bottle Position
-casts_niskins.dropna(subset=["Niskin/Bottle Position"], inplace=True)
-casts_niskins
+# Fill in the relevant columns based on the merge
 # -
+
+Summary["Cruise"] = Summary["Cruise"].fillna(Summary["BOT: Cruise ID"])
+Summary["Station"] = Summary["Station"].fillna(Summary["BOT: Cast"])
+Summary[""]
+
+# ### Merge the LOG Data
+
+for col in Log.columns:
+    Log.rename(columns={col: "LOG: " + col.strip()}, inplace=True)
+Log.columns
+
+Log["LOG: Cruise ID"].unique(), Log["LOG: Station-Cast #"].unique(), Log["LOG: Rosette Position"].unique()
+
+Log["LOG: Rosette Position"].unique()
+
+Summary = Summary.merge(Log,
+                        left_on=["KEY: Cruise ID", "KEY: Cast", "KEY: Niskin"],
+                        right_on=["LOG: Cruise ID", "LOG: Station-Cast #", "LOG: Niskin #"],
+                        how="left")
+
+Summary.head()
+
+Summary.columns
+
+# ### Merge the Discrete Oxygen
+
+for col in Oxygen.columns:
+    Oxygen.rename(columns={col: "OXY: " + col}, inplace=True)
+Oxygen.columns
+
+Oxygen["OXY: Station ID"] = Oxygen["OXY: Station ID"].apply(lambda x: str(x).zfill(3))
+Oxygen["OXY: Station ID"].unique()
+
+Summary = Summary.merge(Oxygen,
+                        left_on=["KEY: Cruise ID", "KEY: Cast", "KEY: Niskin"],
+                        right_on=["OXY: Cruise ID", "OXY: Station ID", "OXY: Niskin ID"],
+                        how="outer")
+
+Summary.head()
+
+Summary.columns
+
+# ### Merge the Salinity
+
+for col in Salinity.columns:
+    Salinity.rename(columns={col: "SAL: " + col}, inplace=True)
+Salinity.columns
+
+Salinity["SAL: Station ID"] = Salinity["SAL: Station ID"].apply(lambda x: str(x).zfill(3))
+Salinity["SAL: Station ID"].unique()
+
+Summary = Summary.merge(Salinity,
+                        left_on=["KEY: Cruise ID", "KEY: Cast", "KEY: Niskin"],
+                        right_on=["SAL: Cruise ID", "SAL: Station ID", "SAL: Niskin ID"],
+                        how="outer")
+
+Summary.head()
+
+# ### Merge the Nutrients
+
+for col in Nutrients.columns:
+    Nutrients.rename(columns={col: "NUT: " + col}, inplace=True)
+Nutrients.columns
+
+Nutrients["NUT: Station ID"] = Nutrients["NUT: Station ID"].apply(lambda x: str(x).zfill(3))
+Nutrients["NUT: Station ID"].unique()
+
+Summary = Summary.merge(Nutrients,
+                        left_on=["KEY: Cruise ID", "KEY: Cast", "KEY: Niskin"],
+                        right_on=["NUT: Cruise ID", "NUT: Station ID", "NUT: Niskin ID"],
+                        how="outer")
+
+Summary.head()
+
+Summary.columns
+
+# ### Merge the Chlorophyll Data
+
+for col in Chlorophyll.columns:
+    Chlorophyll.rename(columns={col: "CHL: " + col}, inplace=True)
+Chlorophyll.columns
+
+Chlorophyll["CHL: Cast"] = Chlorophyll["CHL: Cast"].apply(lambda x: str(x).zfill(3))
+Chlorophyll["CHL: Cast"].unique()
+
+Summary = Summary.merge(Chlorophyll,
+                        left_on=["KEY: Cruise ID", "KEY: Cast", "KEY: Niskin"],
+                        right_on=["CHL: Cruise", "CHL: Cast", "CHL: Niskin"],
+                        how="outer")
+
+Summary.head()
+
+Summary.columns
+
+# ### Merge the DIC
+
+for col in DIC.columns:
+    DIC.rename(columns={col: "DIC: " + col}, inplace=True)
+DIC.columns
+
+DIC["DIC: CAST_NO"] = DIC["DIC: CAST_NO"].apply(lambda x: str(x).zfill(3))
+DIC["DIC: CAST_NO"].unique()
+
+Summary = Summary.merge(DIC,
+                        left_on=["KEY: Cruise ID", "KEY: Cast", "KEY: Niskin"],
+                        right_on=["DIC: CRUISE_ID", "DIC: CAST_NO", "DIC: NISKIN_NO"],
+                        how="outer")
+
+Summary
+
+Summary[(Summary["KEY: Cast"] == "005") & (Summary["KEY: Niskin"] == 5)]
+
+# ### Test out  way to explode dataframe
+
+df = pd.DataFrame({
+    "Cruise ID": ["AT26-30", "AT26-30", "AT26-30", "AT26-30"],
+    "Cast": [1, 1, 2, 2],
+    "Salinity": [34.251, 34.302, [35.212, 35.260], [35.011, 35.065]],
+    "Oxygen": [[8.512, 8.505], 8.210, [6.740, 6.755], [7.602, 7.598]]
+})
+
+df
+
+df = df.set_index(keys=["Cruise ID", "Cast"])
+df
+
+sal = pd.DataFrame(df["Salinity"].explode())
+oxy = pd.DataFrame(df["Oxygen"].explode())
+oxy
+
+df2 = pd.concat([sal, oxy])
+df2
+
+
+
+
+
+def explode_multiple(x):
+    """This will use the prev func, 
+       explode each columns and concat them to a dataframe"""
+    m=x.applymap(lambda x: [*split_lists(x,2)])
+    m=pd.concat([m.explode(i).loc[:,i] for i in m.columns],axis=1).reset_index()
+    return m
+
+
+explode_multiple(df)
+
+explode_cols = ["Salinity", "Oxygen"]
+for col in explode_cols:
+    df = df.explode(col)
+df
+
+pd.DataFrame(df.groupby(by=["Cruise ID", "Cast", "Salinity"])).agg(np.unique).reset_index()
+
+df = df.reset_index(drop=True)
+df
+
+df = df.set_index(keys=["Cruise ID", "Cast"], append=True)
+df
+
+pd.DataFrame(df.stack()).unstack()
+
+new_df = pd.DataFrame(df.stack().explode())
+new_df
+
+new_df.unstack(-1)
+
+df = df.explode("Salinity")
+df
+
+df = df.expl
+
+
+
+# Split the columns
+sal = pd.DataFrame(df["Salinity"].explode())
+oxy = pd.DataFrame(df["Oxygen"].explode())
+oxy
+
+
+
+# Now, merge the data
+df2 = sal.merge(oxy, left_index=True, right_index=True)
+df2
+
+dupes = df2.index.duplicated()
+dupes
+
+df2.reset_index(drop=True, inplace=True)
+
+for ind in df2[dupes]["Oxygen"].index:
+    df2["Oxygen"].loc[ind] = np.nan
+df2
+
+df3 = df2.explode("Oxygen")
+df3
+
+dupes = df3.index.duplicated()
+dupes
+
+df3.reset_index(drop=True, inplace=True)
+df3
+
+for ind in df3[dupes]["Salinity"].index:
+    df3["Salinity"].loc[ind] = np.nan
+df3
+
+for col in df.columns:
+    df = df.explode(col)
+df
+
+df.duplicated()
+
+
+def unique_non_null(s):
+    
+    x = np.unique(s.dropna())
+    if len(x) == 0:
+        return np.nan
+    else:
+        return x
+
+
+df.groupby(by=["Cruise ID", "Cast"]).agg(np.unique)
+
+
+def multi_explode(df, lst_cols, fill_value=np.nan):
+    # make sure `lst_cols` is a list
+    if lst_cols and not isinstance(lst_cols, list):
+        lst_cols = [lst_cols]
+    # all columns except `lst_cols`
+    idx_cols = df.columns.difference(lst_cols)
+
+    # calculate lengths of lists
+    lens = df[lst_cols[0]].str.len()
+    lens = lens.fillna(0)
+
+    if (lens > 0).all():
+        # ALL lists in cells aren't empty
+        return pd.DataFrame({
+            col:np.repeat(df[col].values, df[lst_cols[0]].str.len())
+            for col in idx_cols
+        }).assign(**{col:np.concatenate(df[col].values) for col in lst_cols}) \
+          .loc[:, df.columns]
+    else:
+        # at least one list in cells is empty
+        return pd.DataFrame({
+            col:np.repeat(df[col].values, df[lst_cols[0]].str.len())
+            for col in idx_cols
+        }).assign(**{col:np.concatenate(df[col].values) for col in lst_cols}) \
+          .append(df.loc[lens==0, idx_cols]).fillna(fill_value) \
+          .loc[:, df.columns]
+
+
+def explode(df, columns):
+    idx = np.repeat(df.index, df[columns[0]].str.len().fillna(1))
+    a = df.T.reindex(columns).values
+    concat = np.concatenate([np.concatenate(a[i]) for i in range(a.shape[0])])
+    p = pd.DataFrame(concat.reshape(a.shape[0], -1).T, idx, columns)
+    return pd.concat([df.drop(columns, axis=1), p], axis=1).reset_index(drop=True)
+
+
+# +
+explode_columns = ["Salinity", "Oxygen"]
+for col in explode_columns:
+    df = df.explode(col)
+    
+group_columns = df.columns.difference(explode_columns)
+df = df.groupby(by=group_columns).agg(unique_non_null)
+df
+# -
+
+list(group_columns)
+
+df.groupby(by=list(group_columns)).agg(unique_non_null)
+
+df.apply(lambda x: x.explode() if x.name in ["Salinity", "Oxygen"] else x)
 
 # ## Summary Spreadsheet
 
@@ -362,8 +1064,11 @@ casts_niskins
 Summary = pd.DataFrame(columns=column_order)
 Summary.head()
 
-# ### 2: Add in the Cast Data
+Summary.columns
 
+# ### 2: Add in the unique Cruise, Station, and Niskin Values
+
+casts_niskins = casts_niskins.rename(columns={"Cruise ID": "Cruise", "Cast": "Station", "Niskin": "Niskin/Bottle Position"})
 Summary = Summary.append(casts_niskins, ignore_index=True)
 Summary.head()
 
