@@ -8,18 +8,10 @@ __pycache__/
 *.asv
 
 # Ignore Documents, Data Files, and other results
-QARTOD/**/data/*
-QARTOD/**/results/*
-QARTOD/**/documents/*
-QARTOD/**/figures/*
-Data_Review/**/data/*
-Data_Review/**/results/*
-Data_Review/**/documents/*
-Data_Review/**/figures/*
-Instrument_Review/**/data/*
-Instrument_Review/**/results/*
-Instrument_Review/**/documents/*
-Instrument_Review/**/figures/*
+**/data/*
+**/results/*
+**/documents/*
+**/figures/*
 
 # Ship Data Directory Files
 Ship_data/**/*.ipynb
@@ -34,9 +26,6 @@ Ship_data/Pioneer
 Ship_data/Southern
 
 # Data Review Directory Files
-Data_Review/**/documents/*
-Data_Review/**/figures/*
-Data_Review/**/data/*
 Data_Review/**/*.csv
 Data_Review/**/*.ipynb
 
@@ -47,19 +36,12 @@ Metadata_Review/**/*.xlsx
 Metadata_Review/**/*.sqlite
 Metadata_Review/Metadata_Communications/Output/
 
-# Oxygen Optode Data
-Optode_Calibration/data/*
-Optode_Calibration/results/*
+# Oxygen Optode Calibration Directory
 
-# Preload Directory Files
-Preload/data/*
-Preload/results/*
+# Preload Directory
 
 # QARTOD Directory Files
-QARTOD/**/data/*
-QARTOD/**/results/*
 QARTOD/*.csv
-QARTOD/Results/
 QARTOD/**/*.ipynb
 QARTOD/Testing/ioos_qc_py2*
 
