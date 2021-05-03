@@ -109,56 +109,63 @@ class GrossRange():
 
 
 class Climatology():
-    
+
     def std(self, ds, param):
         """Calculate the standard deviation of grouped-monthly data.
-        
+
         Calculates the standard deviation for a calendar-month from all
-        of the observations for a given calendar-month.
-        
+        of the observations for a given calendar-month. Does linear
+        interpolation to fill NaNs. Performs a 90-degree phase shift to interp
+        edge-cases.
+
         Parameters
         ----------
         ds: (xarray.DataSet)
             DataSet of the original time series observations
         param: (str)
             A string corresponding to the variable in the DataSet which is fit.
-            
+
         Attributes
         ----------
         monthly_std: (pandas.Series)
-            The standard deviation for a calendar month calculated from all of the
-            observations for a given calendar-month.
+            The standard deviation for a calendar month calculated from all of
+            the observations for a given calendar-month.
         """
-        
         da = ds[param].groupby(ds.time.dt.month).std()
         self.monthly_std = pd.Series(da.values, index=da.month)
-        
+
         # Fill missing std values
-        ind = np.arange(1,13,1)
+        ind = np.arange(1, 13, 1)
         self.monthly_std = self.monthly_std.reindex(index=ind)
-        self.monthly_std = self.monthly_std.fillna(value=self.monthly_std.mean())
-            
+        # First, interpolate only NaNs surrounded by valid values
+        self.monthly_std = self.monthly_std.interpolate(limit_area="inside")
+        # Second, shift values by 3 (90 degrees) to capture edge cases
+        self.monthly_std = self.monthly_std.reindex(index=np.roll(
+            self.monthly_std.index, 3)).interpolate(limit_area="inside")
+        # Finally, shift values back by 3 (90 degrees) to reset index
+        self.monthly_std = self.monthly_std.reindex(index=np.roll(self.monthly_std.index, -3))
+
     def fit(self, ds, param):
         """Calculate the climatological fit and monthly standard deviations.
-        
-        Calculates the climatological fit for a time series. First, the data 
-        are binned by month and averaged. Next, a two-cycle harmonic is fitted
+
+        Calculates the climatological fit for a time series. First, the data
+        are binned by month and averaged. Next, a four-cycle harmonic is fitted
         via OLS-regression. The climatological expected value for each month
-        is then calculated from the regression coefficients. Finally, the 
-        standard deviation is derived using the observations for a given month
-        and the climatological fit for that month as the expected value.
-        
+        is then calculated from the regression coefficients using only the first
+        two cycles from the harmonic fit. Finally, the standard deviation is
+        derived using all the observations for a given month.
+
         Parameters
         ----------
         ds: (xarray.DataSet)
             DataSet of the original time series observations
         param: (str)
             A string corresponding to the variable in the DataSet to fit.
-            
+
         Attributes
         -------
         fitted_data: (pandas.Series)
-            The climatological monthly expectation calculated from the 
+            The climatological monthly expectation calculated from the
             regression, indexed by the year-month
         regression: (dict)
             A dictionary containing the OLS-regression values for
@@ -166,16 +173,16 @@ class Climatology():
             * residuals: Sums of residuals; squared Euclidean 2-norm
             * rank: rank of the input matrix
             * singular_values: The singular values of input matrix
+            * variance_explained: coefficient of determination, or R^2
         monthly_fit: (pandas.Series)
             The climatological expectation for each calendar month of a year
-            
+
         Example
         -------
         from qartod.climatology import Climatology
         climatology = Climatology()
         climatology.fit(ctdbp_data, "ctdbp_seawater_temperature")
         """
-        
         # Resample the data to monthly means
         mu = ds[param].resample(time="M").mean()
 
@@ -192,24 +199,30 @@ class Climatology():
         t_in = t_in[mask == False]
         n = len(t_in)
 
-        # Build the 2-cycle model
-        X = [np.ones(n), np.sin(2*np.pi*f*t_in), np.cos(2*np.pi*f*t_in), np.sin(4*np.pi*f*t_in), np.cos(4*np.pi*f*t_in)]
+        # build the four-cycle model
+        X = [np.ones(n), np.sin(2 * np.pi * f * t_in), np.cos(2 * np.pi * f * t_in),
+             np.sin(4 * np.pi * f * t_in), np.cos(4 * np.pi * f * t_in),
+             np.sin(6 * np.pi * f * t_in), np.cos(6 * np.pi * f * t_in),
+             np.sin(8 * np.pi * f * t_in), np.cos(8 * np.pi * f * t_in)]
+
         [beta, resid, rank, s] = np.linalg.lstsq(np.transpose(X), ts)
         self.regression = {
             "beta": beta,
             "residuals": resid,
             "rank": rank,
-            "singular_values": s
+            "singular_values": s,
+            "variance_explained": 1 - resid / sum((ts - ts.mean()) ** 2)
         }
 
         # Calculate the two-cycle fitted data
-        fitted_data = beta[0] + beta[1]*np.sin(2*np.pi*f*t_out) + beta[2]*np.cos(2*np.pi*f*t_out) + beta[3]*np.sin(4*np.pi*f*t_out) + beta[4]*np.cos(4*np.pi*f*t_out)
+        fitted_data = beta[0] + beta[1]*np.sin(2*np.pi*f*t_out) + beta[2]*np.cos(
+            2*np.pi*f*t_out) + beta[3]*np.sin(4*np.pi*f*t_out) + beta[4]*np.cos(4*np.pi*f*t_out)
         fitted_data = pd.Series(fitted_data, index=mu.get_index("time"))
         self.fitted_data = fitted_data
-        
+
         # Return the monthly_avg
         self.monthly_fit = self.fitted_data.groupby(self.fitted_data.index.month).mean()
-        
+
         # Return the monthly_std
         self.std(ds, param)
 
@@ -268,7 +281,6 @@ def reprocess_dataset(ds):
     return ds
 
 
-
 def preprocess(ds):
     """
     This function trims overlapping deployment times to allow
@@ -323,3 +335,73 @@ def load_netCDF(thredds_catalog):
     ds = ds.sortby("time")
     
     return ds
+
+
+def make_climatology_table(ds, param, pres, depth_bins):
+    """Function which calculates the climatology table based on the """
+     
+    climatologyTable = pd.DataFrame()
+    
+    # Iterate through the depth bins to calculate the climatology for each depth bin
+    for k in np.arange(0, len(depth_bins)-1):
+        # Get the pressure range to bin from
+        pmin, pmax = depth_bins[k], depth_bins[k+1]
+
+        # Select the data from the pressure range
+        bin_data = data.where((data[pres] >= pmin) & (data[pres] <= pmax), drop=True)
+
+        # Fit the climatology for the selected data
+        try:
+            climatology = Climatology()
+            climatology.fit(bin_data, param)
+
+            # Create the depth index
+            zspan = pd.interval_range(start=pmin, end=pmax, periods=1, closed="both")
+
+            # Create the monthly bins
+            tspan = pd.interval_range(0, 12, closed="both")
+
+            # Calculate the climatology data
+            vmin = climatology.monthly_fit - climatology.monthly_std*3
+            vmax = climatology.monthly_fit + climatology.monthly_std*3
+            vdata = pd.Series(data=zip(vmin, vmax), index=vmin.index).apply(lambda x: [v for v in x])
+            vspan = vdata.values.reshape(1,-1)
+
+            # Build the climatology dataframe
+            climatologyTable = climatologyTable.append(pd.DataFrame(data=vspan, columns=tspan, index=zspan))
+
+        except:
+            # Here is where to create nans if insufficient data to fit
+            # Create the depth index
+            zspan = pd.interval_range(start=pmin, end=pmax, periods=1, closed="both")
+
+            # Create the monthly bins
+            tspan = pd.interval_range(0, 12, closed="both")
+
+            # Create a series filled with nans
+            vals = []
+            for i in np.arange(len(tspan)):
+                vals.append([np.nan, np.nan])
+            vspan = pd.Series(data=vals, index=tspan).values.reshape(1,-1)
+
+            # Add to the data
+            climatologyTable = climatologyTable.append(pd.DataFrame(data=vspan, columns=tspan, index=zspan))
+            
+        del climatology, bin_data, vspan, tspan, zspan
+        gc.collect()
+    
+    return climatologyTable
+
+
+def fix_header_row(x):
+    """Function to clean up the month header row"""
+    
+    # First, convert the entries
+    if type(x) is float:
+        if np.isnan(x):
+            pass
+    else:
+        x = json.loads(x)
+        a, b = x
+        x = [b, b]
+        return x

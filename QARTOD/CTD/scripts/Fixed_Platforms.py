@@ -109,11 +109,6 @@ metadata.head()
 metadata = metadata.applymap(lambda x: x[0] if len(x) == 1 else x)
 metadata.head()
 
-# #### Select a referenc
-
-method, stream, particleKey, pdId = metadata[metadata["count"] == np.max(metadata["count"])][["method","stream","particleKey","pdId"]].iloc[0]
-method, stream, particleKey, pdId
-
 # ---
 # ## Load Data
 # When calculating the QARTOD data tables, we only want to utilize the most complete data record available for a given reference designator. We can identify this by filtering for the largest value under ```count``` which indicates the number of particles in the system for a given dataset. The more particles, the more availabe data. While most of the time this will be the recovered_inst stream, in cases of instrument loss or failure, it may be the record recovered from the mooring host computer (recovered_host) or even data which was telemetered back to shore.
