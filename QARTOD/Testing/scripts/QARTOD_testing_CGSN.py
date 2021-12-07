@@ -112,18 +112,17 @@ ds.attrs["Location_name"] = " ".join((vocab["tocL1"].iloc[0],
 # First, cut down the dataset size to be more managable
 # -
 
-dataVars = ["practical_salinity", "ctdbp_seawater_temperature", "ctdbp_seawater_pressure",
-            "practical_salinity_qartod_executed", "ctdbp_seawater_temperature_qartod_executed"]
-ctdbp = data[dataVars]
-ctdbp
+dataVars = ["pco2_seawater", "pco2_seawater_qartod_executed"]
+pco2w = data[dataVars]
+pco2w
 
 # ### QARTOD values
 # Next, load the QARTOD tables from github and parse them into dictionaries.
 #
 # Changes: None
 
-inst = "ctdbp"
-param = "ctdbp_seawater_temperature"
+inst = "pco2w"
+param = "pco2_seawater"
 
 import io
 import json
@@ -246,7 +245,7 @@ def add_climatology_values(ds, param, clim_dict):
 
 # -
 
-ctdbp = add_climatology_values(ctdbp, param, clim_dict)
+pco2w = add_climatology_values(pco2w, param, clim_dict)
 
 
 # ### Add QARTOD flags
@@ -280,8 +279,8 @@ def create_QARTOD_flags(ds, param, grossRange):
     return ds
 
 
-ctdbp = create_QARTOD_flags(ctdbp, param, grossRange_dict)
-ctdbp
+pco2w = create_QARTOD_flags(pco2w, param, grossRange_dict)
+pco2w
 
 
 # ### Compare test values
@@ -318,8 +317,8 @@ def run_comparison(ds, param):
     return ds
 
 
-ctdbp = run_comparison(ctdbp, param)
-ctdbp
+pco2w = run_comparison(pco2w, param)
+pco2w
 
 # ### Execute the comparison
 # So far, all the work we've done hasn't actually run any processing. Everything has been done as a set of dask instructions to execute when we call compute().
@@ -329,9 +328,9 @@ ctdbp
 from dask.diagnostics import ProgressBar
 
 with ProgressBar():
-    for var in ctdbp.variables:
+    for var in pco2w.variables:
         if "comparison" in var:
-            result = ctdbp[var].sum().compute()
+            result = pco2w[var].sum().compute()
             print(f"Missed flags for {var}: {result.values}")
 
 
