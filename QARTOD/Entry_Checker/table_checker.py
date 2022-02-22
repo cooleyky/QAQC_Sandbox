@@ -21,6 +21,18 @@ import os
 
 # +
 def parse_gross_range_table(table):
+    """Parse the gross range qc-lookup table.
+    
+    Parameters
+    ----------
+    table: (pd.DataFrame)
+        The gross range qc-lookup table loaded into python as a pandas dataframe.
+        
+    Returns
+    -------
+    table: (pd.DataFrame)
+         The gross range qc-lookup table with the entries parsed into functional entries.
+    """
     
     # Parse the table entries which are dictionaries
     table["parameters"] = table["parameters"].apply(lambda x: ast.literal_eval(x))
@@ -35,6 +47,18 @@ def parse_gross_range_table(table):
 
 
 def parse_climatology_table(table):
+    """Parse the climatology qc-lookup table.
+    
+    Parameters
+    ----------
+    table: (pd.DataFrame)
+        The climatology qc-lookup table loaded into python as a pandas dataframe.
+        
+    Returns
+    -------
+    table: (pd.DataFrame)
+         The climatology qc-lookup table with the entries parsed into functional entries.
+    """
     table["parameters"] = table["parameters"].apply(lambda x: ast.literal_eval(x))
     table["inp"] = table["parameters"].apply(lambda x: x.get("inp"))
     return table
@@ -43,7 +67,26 @@ def parse_climatology_table(table):
 # +
 def check_entry_gross_range(refdes, stream, variables, gross_range_test_values):
     """
-    Check if the reference designator, data stream, and variables are in the gross range table
+    Check if the reference designator, stream, and variable(s) are in the gross range qc-lookup table.
+    
+    Parameters
+    ----------
+    refdes: (str)
+        The reference designator of the instrument
+    stream: (str)
+        The particular data stream for the given reference designator
+    variables: (str or list)
+        The variable(s) for the reference designator-stream to check are in the qc-lookup table
+    gross_range_test_values: (pd.DataFrame)
+        The qc-lookup table for the gross range test which should contain the reference designator,
+        stream, and variable(s) if they have been added
+        
+    Returns
+    -------
+    results: (dict)
+        A dictionary with a boolean in "missing" key if the given variable for the reference
+        designator - stream is in the qc-lookup table. Meant to be parsed into a pandas
+        dataframe.
     """
     # Get the subsite - node - sensor
     subsite, node, sensor = refdes.split("-", 2)
@@ -80,7 +123,35 @@ def check_entry_gross_range(refdes, stream, variables, gross_range_test_values):
 
 def check_entry_climatology(refdes, stream, variables, climatology_test_values, qartod_dir):
     """
-    Check if the reference designator, data stream, and variables are in the climatology table
+    Check if the reference designator, data stream, and variables are in the climatology table.
+    
+    Parameters
+    ----------
+    refdes: (str)
+        The reference designator of the instrument
+    stream: (str)
+        The particular data stream for the given reference designator
+    variables: (str or list)
+        The variable(s) for the reference designator-stream to check are in the qc-lookup table
+    gross_range_test_values: (pd.DataFrame)
+        The qc-lookup table for the gross range test which should contain the reference designator,
+        stream, and variable(s) if they have been added
+    qartod_dir: (str)
+        The path to where the climatology
+        
+    Returns
+    -------
+    results: (dict)
+        A dictionary with the following keys:
+        * refdes: reference designator
+        * stream: stream
+        * variable: variable
+        * missing: boolean value indicating if the refdes-stream-variable is in the qc-lookup table
+        * tableExists: if "missing" is False, a boolean which checks if the climatologyTable for the
+                       variable is in the climatologyTable
+        * tableKeyMatch: if "tableExists" is True, a boolean which checks if the key in the name of
+                         the climatologyTable matches what is in the "inp" value from the qc-lookup
+                         table
     """
     # Get the subsite - node - sensor
     subsite, node, sensor = refdes.split("-", 2)
@@ -135,7 +206,44 @@ def check_entry_climatology(refdes, stream, variables, climatology_test_values, 
 
 def check_entries(refdes, stream, variables, qartod_dir=None, tests=["gross_range", "climatology"]):
     """
-    Check if the reference designator, data stream, and variables are in the qartod tables
+    Check if the reference designator, data stream, and variables are in the qc-lookup tables.
+       
+    Current iteration is set for "gross_range" and "climatology" tests. Designed to be flexible
+    enough to accomodate future tests so long as they follow the qc-lookup format set by the
+    existing test tables.
+    
+    Parameters
+    ----------
+    refdes: (str)
+        The reference designator of the instrument
+    stream: (str)
+        The particular data stream for the given reference designator
+    variables: (str or list)
+        The variable(s) for the reference designator-stream to check are in the qc-lookup table
+    qartod_dir: (str)
+        The path to where qc-lookup tables for the qartod tests are located
+    tests: (list -> str: ["gross_range", "climatology"])
+        A list of qartod tests which to check the qc-lookup value tables for the relevant 
+        reference designator - stream - variable entries.
+        
+    Returns
+    -------
+    gross_range_results: (dict)
+        A dictionary with a boolean in "missing" key if the given variable for the reference
+        designator - stream is in the qc-lookup table. Meant to be parsed into a pandas
+        dataframe.
+
+    climatology_results: (dict)
+        A dictionary with the following keys:
+        * refdes: reference designator
+        * stream: stream
+        * variable: variable
+        * missing: boolean value indicating if the refdes-stream-variable is in the qc-lookup table
+        * tableExists: if "missing" is False, a boolean which checks if the climatologyTable for the
+                       variable is in the climatologyTable
+        * tableKeyMatch: if "tableExists" is True, a boolean which checks if the key in the name of
+                         the climatologyTable matches what is in the "inp" value from the qc-lookup
+                         table
     """
     # Get the subsite, node, sensor
     subsite, node, sensor = refdes.split("-", 2)
