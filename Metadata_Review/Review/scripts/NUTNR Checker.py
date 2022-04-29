@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.3.3
+#       jupytext_version: 1.13.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -28,6 +28,7 @@
 import csv
 import re
 import os
+import sys
 import shutil
 import numpy as np
 import pandas as pd
@@ -38,6 +39,7 @@ from zipfile import ZipFile
 import string
 
 sys.path.append('/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Calibration/Parsers/')
+sys.path.append("..")
 
 from Parsers.NUTNRCalibration import NUTNRCalibration
 
@@ -58,35 +60,20 @@ glider_directory = '/media/andrew/OS/Users/areed/Documents/Project_Files/Records
 # 1. Instrument UID: This is needed to initialize the OPTAA parser
 # 2. Source file: This is the full path to the source file. Zip files are acceptable input.
 
+autodesk_file = "/home/andrew/Downloads/NUTNR-N_SUNA_SN_0367_Calibration_Files_2018-06-20.zip"
+gitHub_file = "/home/andrew/Documents/OOI-CGSN/asset-management/calibration/NUTNRN/CGINS-NUTNRN-00367__20180620.csv"
+
 # If the predeployment file is not listed in asset tracking, need to hunt through all the predeployment files for the possible candidates:
 
-sn = '1089'
-
-cal_file = '3305-00527-00064-A_SN_NTR-1088_Recovery_NUTNR-B.zip'
+sn = '367'
 
 # Initialize the parser:
 
-for file in os.listdir(cal_directory):
-    if cal_file in file:
-        print(cal_file)
-
-for file in os.listdir(doc_directory):
-    if '3305-00527-00035-A' in file:
-        print(file)
-        zfile = file
-
-#filepath = cal_directory + '/' + cal_file
-#filepath = doc_directory +'/' + zfile
-filepath = '/home/andrew/Downloads/'+'3305-00527-00065-A.zip'
-#filepath = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Metadata_Review/Review/temp/'+'3305-00527-00062-A'+'.zip'
-
-sn='1103'
-
-nutnr = NUTNRCalibration('CGINS-NUTNRB-'+sn.zfill(5))
+nutnr = NUTNRCalibration('CGINS-NUTNRN-'+sn.zfill(5))
 
 # Read in the calibration coefficients:
 
-nutnr.load_cal(filepath)
+nutnr.load_cal(autodesk_file)
 
 nutnr.coefficients
 
@@ -96,9 +83,9 @@ temp_directory = '/'.join((os.getcwd(),'temp'))
 # Check if the temp directory exists; if it already does, purge and rewrite
 if os.path.exists(temp_directory):
     shutil.rmtree(temp_directory)
-    ensure_dir(temp_directory)
+    os.makedirs(temp_directory)
 else:
-    ensure_dir(temp_directory)
+    os.makedirs(temp_directory)
 
 nutnr.write_csv(temp_directory)
 
@@ -133,14 +120,24 @@ dt
 
 sn.zfill(5)
 
-source_path = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Metadata_Review/Review/temp/'
-source_csv = pd.read_csv(source_path+'CGINS-NUTNRB-'+sn.zfill(5)+'__'+dt+'.csv')
+print(os.listdir(os.getcwd()+"/temp")[0])
+
+source_path = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Metadata_Review/Review/scripts/temp/'
+file = "CGINS-NUTNRN-00366__20220331.csv"
+source_csv = pd.read_csv(source_path+file)
 source_csv['value'] = source_csv['value'].apply(lambda x: reformat_arrays(x))
 #source_csv['serial'] = 1029
 source_csv
 
-path = '/home/andrew/Documents/OOI-CGSN/asset-management/calibration/NUTNRB/CGINS-NUTNRB-'+sn.zfill(5)+'__'+dt+'.csv'
-path
+gitHub_csv = pd.read_csv(gitHub_file)
+gitHub_csv['value'] = gitHub_csv['value'].apply(lambda x: reformat_arrays(x))
+gitHub_csv
+
+gitHub_csv == source_csv
+
+gitHub_file.split("/")[-1] == file.split("/")[-1]
+
+source_path+
 
 am_csv = pd.read_csv(path)
 am_csv['value'] = am_csv['value'].apply(lambda x: reformat_arrays(x))

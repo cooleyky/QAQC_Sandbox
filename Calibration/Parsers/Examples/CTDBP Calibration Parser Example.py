@@ -5,10 +5,10 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.13.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -29,8 +29,8 @@ from utils import *
 # ### Data Sources and Locations
 # Enter the full path to where the calibration and qct files are stored. If running this example as part of the Parsers package, the relatives paths defined below should work.
 
-cal_files = '../Data_Sources/CTDBP/CTDBP-C_SBE_16PlusV2_SN_16-50003_Calibration_Files_2019-01-23.zip'
-qct_files = '../Data_Sources/CTDBP/3305-00102-00209-A.txt'
+cal_files = '../Data_Sources/CTDBP/3305-00102-00309-A.cap'
+#qct_files = '../Data_Sources/CTDBP/3305-00102-00209-A.txt'
 
 # **===================================================================================================================**
 # ### Create the CTDBP Calibration Object
@@ -53,15 +53,26 @@ else:
 # 2. Call the load_cal method with the path to where the .cal file is stored
 # 3. Call the write_csv method with the path to where the csv calibration file should be saved to
 
-ctdbp = CTDBPCalibration(uid='CGINS-CTDBPC-50003')
+ctdbp = CTDBPCalibration(uid='CGINS-CTDBPE-50111')
 
-ctdbp.load_cal(cal_files)
+ctdbp.load_qct(cal_files)
+
+ctdbp.coefficients
 
 ctdbp.write_csv(tempdir)
 
 # Now, lets load the csv file into a dataframe for later comparison with other calibration sources
-cal = pd.read_csv('temp/CGINS-CTDBPC-50003__20190123.csv')
+filename = "CGINS-CTDBPE-50111__20220114.csv"
+cal = pd.read_csv(f'temp/{filename}')
 cal
+
+# #### Compare with cal files
+
+gitHub_file = f"/home/andrew/Documents/OOI-CGSN/asset-management/calibration/CTDBPE/{filename}"
+gitHub = pd.read_csv(gitHub_file)
+gitHub
+
+cal == gitHub
 
 # #### Calibration CSV from .xmlcon file
 # First, we'll generate a calibration csv from the vendor .xmlcon file (which is stored away in a .zip file). The steps are:

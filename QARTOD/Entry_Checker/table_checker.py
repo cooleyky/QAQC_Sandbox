@@ -36,6 +36,7 @@ def parse_gross_range_table(table):
     
     # Parse the table entries which are dictionaries
     table["parameters"] = table["parameters"].apply(lambda x: ast.literal_eval(x))
+    table["qcConfig"] = table["qcConfig"].apply(lambda x: x.replace('nan','None'))
     table["qcConfig"] = table["qcConfig"].apply(lambda x: ast.literal_eval(x))
 
     # Next, parse out the inputs, fail_span, and suspect_span into their own columns
