@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.6.0
+#       jupytext_version: 1.13.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -33,7 +33,7 @@ import numpy as np
 # #### Summary Sheet
 # Load the summary sheet. Make sure to navigate to the correct directory and have the correct file name entered.
 
-summary_sheet = pd.read_excel("../data/Irminger_Sea-06_AR35-05_Discrete_Sample_Summary.xlsx")
+summary_sheet = pd.read_excel("../data/Pioneer-13/Pioneer-13_AR39_Discrete_Summary_2022-02-24_ACR.xlsx")
 summary_sheet.head()
 
 # #### Cruise Names
@@ -206,7 +206,7 @@ schema = Schema([
     #     Phosphate: Maximum value ~5 uM (WOA 2018 mean fields); check for "<" which means undetecable
     Column('Discrete Phosphate [uM]', [InRangeValidation(0, 5) | MatchesPatternValidation(r"<\d.\d{2}") | MatchesPatternValidation("-9999999")]),
     #     Silicate: Maximum value for Southern Ocean ~120 uM (WOA 2018 mean fields); check for "<" which mean undetectable
-    Column('Discrete Silicate [uM]', [InRangeValidation(0, 120)| MatchesPatternValidation(r"<\d.\d{2}") | MatchesPatternValidation("-9999999")]),
+    Column('Discrete Silicate [uM]', [InRangeValidation(0, 160)| MatchesPatternValidation(r"<\d.\d{2}") | MatchesPatternValidation("-9999999")]),
     #     Nitrate: Maximum value ~50 uM (WOA 2018 Mean mean fields)
     Column('Discrete Nitrate [uM]', [InRangeValidation(0, 50) | MatchesPatternValidation(r"<\d.\d{2}") | MatchesPatternValidation("-9999999")]),
     #     Nitrite: Maximum values should be < 10; check for "<" which means undetectable
@@ -217,7 +217,7 @@ schema = Schema([
     Column('Discrete Nutrients Replicate Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     
     # Salinity: Check that the ranges are within physical ocean ranges
-    Column('Discrete Salinity [psu]', [InRangeValidation(33, 37) | MatchesPatternValidation("-9999999")]),
+    Column('Discrete Salinity [psu]', [InRangeValidation(32, 37) | MatchesPatternValidation("-9999999")]),
     Column('Discrete Salinity Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     Column('Discrete Salinity Replicate Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     
@@ -227,12 +227,12 @@ schema = Schema([
     Column('Discrete Alkalinity Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     Column('Discrete Alkalinity Replicate Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     #     DIC: Range should be 1900 - 2300
-    Column('Discrete DIC [umol/kg]', [InRangeValidation(1900, 2300) | MatchesPatternValidation("-9999999")]),
+    Column('Discrete DIC [umol/kg]', [InRangeValidation(1900, 2400) | MatchesPatternValidation("-9999999")]),
     Column('Discrete DIC Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     Column('Discrete DIC Replicate Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
-    #     pCO2: CGSN doesn't measure; should be all fill values
+    #     pCO2: CGSN doesn't measure; should be all fill values except for Papa 4 & 5 which were done by OSU
     Column('Discrete pCO2 [uatm]', [InRangeValidation(200, 1200) | MatchesPatternValidation("-9999999")]),
-    Column('pCO2 Analysis Temp [deg C]', [DecimalValidation, InRangeValidation(24, 26) | MatchesPatternValidation("-9999999")]),
+    Column('pCO2 Analysis Temp [deg C]', [DecimalValidation, InRangeValidation(10, 26) | MatchesPatternValidation("-9999999")]),
     Column('Discrete pCO2 Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     Column('Discrete pCO2 Replicate Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     #     pH: Range should be 7 - 9 & Analysis temp 25C
@@ -242,6 +242,7 @@ schema = Schema([
     Column('Discrete pH Replicate Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     
     # Calculated Carbon System measurement: We don't impute these, should all be fill values
+    # Exception is Papa 4 & 5, which were done by OSU and will have 
     Column('Calculated Alkalinity [umol/kg]', [MatchesPatternValidation("-9999999")]),
     Column('Calculated DIC [umol/kg]', [MatchesPatternValidation("-9999999")]),
     Column('Calculated pCO2 [uatm]', [MatchesPatternValidation("-9999999")]),
@@ -256,7 +257,12 @@ schema = Schema([
 errors = schema.validate(summary_sheet)
 
 for error in errors:
-    print(error)
+    if "Calculated" in error.column:
+        pass
+    elif "pH" in error.column or "pCO2" in error.column or "DIC" in error.column or "Alkalinity" in error.column:
+        pass
+    else:
+        print(error)
 
 # ---
 # ### Metadata Columns

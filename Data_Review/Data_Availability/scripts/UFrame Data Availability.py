@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.5.2
+#       jupytext_version: 1.13.0
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -62,17 +62,22 @@ import warnings
 warnings.filterwarnings("ignore")
 
 sys.path.append("/home/andrew/Documents/OOI-CGSN/ooinet/ooinet/")
+sys.path.append("/home/andrew/Documents/OOI-CGSN/oceanobservatories/ooi-data-explorations/python")
 
 from m2m import M2M
+from ooi_data_explorations.uncabled import process_pco2w
+from ooi_data_explorations.common import add_annotation_qc_flags
 
 # Import user info for connecting to OOINet via M2M
-userinfo = yaml.load(open("../../user_info.yaml"))
+userinfo = yaml.load(open("../../../user_info.yaml"))
 username = userinfo["apiname"]
 token = userinfo["apikey"]
 
 from utils import *
 
-# **====================================================================================================================**
+process_pco2w.pco2w_instrument()
+
+# ---
 # ### Deployment Information
 # To properly identify and calculate the data availability on a deployment level, need to pull in the deployment information for each array/platform. This can be ingested from the deployment sheets on an array-by-array basis. Once the deployment csvs are loaded, they are parsed to retain only the deployment number, startDateTime, and stopDateTime.
 #
@@ -92,33 +97,148 @@ deployment_csvs.head()
 reference_designators = sorted(deployment_csvs["Reference Designator"].unique())
 reference_designators
 
-# **====================================================================================================================**
-# ### UFrame Asset Identification
-# UFrame offers the ability to query different api end-points and get the available assets. This allows for the dynamic building of a query to programmatically request and load data from UFrame for each sensor on a particular array. Our steps below are to:
-# 1. Select a reference designator from the deployment info sheet
-# 2. Identify which methods and streams to download by querying the UFrame API
-
 # Initialize the OOINet object to connect of OOINet
 OOINet = M2M(username, token)
 
 # refdes = sorted(reference_designators)[0]
-refdes = "RS01SBPS-SF01A-4F-PCO2WA101"
+refdes = "CP01CNSM-MFD35-05-PCO2WB000"
 
 refdes_deployments = OOINet.get_deployments(refdes)
 refdes_deployments
 
+# ---
+# ## Metadata 
+# The metadata contains the following important key pieces of data for each reference designator: **```method```**, **```stream```**, **```particleKey```**, and **```count```**. The method and stream are necessary for identifying and loading the relevant dataset. The particleKey tells us which data variables are in the dataset. 
+
 # Specify which instrument we want and see the method options
-array, node, instrument = refdes.split("-",2)
-methods = OOINet._get_api("/".join((OOINet.urls["data"], array, node, instrument)))
-methods
+metadata = OOINet.get_metadata(refdes)
+metadata
 
-# Specify which method and return the available streams
-method = 'streamed'
-streams = OOINet._get_api("/".join((OOINet.urls["data"], array, node, instrument, method)))
-streams
+# Groupby based on the reference designator - method - stream to get the unique values for each data stream
 
-# Specify the stream name
-stream = 'pco2w_a_sami_data_record'
+data_levels = OOINet.get_parameter_data_levels(metadata)
+data_levels
+
+
+# +
+def filter_parameter_data_level(pdId, pid_dict):
+    """Filter for processed data products."""
+    data_level = pid_dict.get(pdId)
+    if data_level is not None:
+        if data_level > 0:
+            return True
+        else:
+            return False
+    else:
+        return False
+    
+# Get the science-level data streams
+mask = metadata["pdId"].apply(lambda x: filter_parameter_data_level(x, data_levels))
+metadata = metadata[mask]
+metadata = metadata.groupby(by=["refdes","stream"]).agg(lambda x: pd.unique(x.values.ravel()).tolist())
+metadata = metadata.reset_index()
+metadata = metadata.applymap(lambda x: x[0] if len(x) == 1 else x)
+metadata.head()
+# -
+
+# Filter out any datastreams with ```blank``` in the stream
+
+mask = metadata["stream"].apply(lambda x: True if "blank" not in x else False)
+metadata = metadata[mask]
+metadata
+
+# The result is a dataframe with the datastreams which contain the science-relevant data. It also contains the ```method``` and ```stream``` needed to request and downloaded the data
+
+# ---
+# ## Request Data
+# With the array, node, sensor, method, and stream identified after querying the m2m api, we can build the request for actual data. Below we follow these steps:
+# 1. Request the thredds server url from the OOI API using the appropriate data request url for all time
+# 2. Request all of the available datasets from the Thredds server
+#     * This may take awhile for OOI to assemble all of the datasets. You can rerun the get_netcdf_datasets as many times as you want until the list of datasets stops growing.
+# 3. Filter out datasets for associated but unwanted datasets such as engineering and CTD datasets.
+
+# First, select the method and stream
+
+method = "telemetered"
+stream = "pco2w_abc_dcl_instrument"
+
+# Next, get the first deployment to load
+
+beginDT = refdes_deployments[refdes_deployments["deploymentNumber"] == 11]["deployStart"].values[0]
+endDT = refdes_deployments[refdes_deployments["deploymentNumber"] == 11]["deployEnd"].values[0]
+
+# +
+# Try a new thredds request only for specific parameter ids
+kwargs = {
+    "beginDT": beginDT,
+    "endDT": endDT
+}
+
+new_thredds_url = OOINet.get_thredds_url(refdes, method, stream, **kwargs)
+# -
+
+new_catalog = OOINet.get_thredds_catalog(new_thredds_url)
+
+new_catalog = OOINet.parse_catalog(new_catalog, exclude=["ENG","CTD","blank"])
+new_catalog
+
+data = OOINet.load_netCDF_datasets(new_catalog)
+data = process_pco2w.pco2w_datalogger(data)
+
+# +
+days = time_periods(beginDT, endDT)
+days = [day.strip('Z') for day in days]
+
+results = pd.DataFrame(columns=["day", "total", "missing", "present", "percent_present"])
+
+for k in np.arange(0, len(days)-1, 1):
+    # Get a subset of the data
+    subset_data = data.sel(time=slice(days[k], days[k+1]))
+    
+    # Calculate the number of "present" and "missing" data values
+    total = len(subset_data.pco2_seawater)
+    missing = subset_data.pco2_seawater.isnull().sum().values
+    present = subset_data.pco2_seawater.count().values
+    percent_present = (present-missing)/total*100
+    
+    # Save the results in a dataframe
+    results = results.append({
+        "day": days[k],
+        "total": total,
+        "missing": missing,
+        "present": present,
+        "percent_present": percent_present
+    }, ignore_index=True)
+    
+# -
+
+results
+
+# Create summary statistics
+summary = pd.DataFrame("deploymentNumber", "First 30 days", "Total Good", "Last 30 days")
+
+days[k], days[k+1]
+
+subset_data = data.sel(time=slice(days[0],days[1]))
+
+len(subset_data.pco2_seawater)
+
+total = len(subset_data.pco2_seawater)
+nans = subset_data.pco2_seawater.isnull().sum().values
+good = (total - nans)
+percent_good = good/total*100
+
+subset_data.pco2_seawater[1] = np.nan
+
+subset_data.pco2_seawater
+
+# ---
+# Build some functions to calculate the daily bin values
+
+days = time_periods(beginDT, endDT)
+days = [day.strip('Z') for day in days]
+days = pd.to_datetime(days)
+days
 
 # **====================================================================================================================**
 # ### Sensor Metadata Information & \_FillValues

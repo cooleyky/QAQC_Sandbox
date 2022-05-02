@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.6.0
+#       jupytext_version: 1.13.4
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -33,50 +33,144 @@ username = userinfo["apiname"]
 token = userinfo["apikey"]
 
 OOINet = M2M(username, token)
-
-OOINet.URLS
+Dev01 = M2M(username, token)
 
 # Reset the M2M location to ooinet-dev1-west.intra.oceanobservatories.org
-for key in OOINet.URLS:
-    url = OOINet.URLS.get(key)
+for key in Dev01.URLS:
+    url = Dev01.URLS.get(key)
     if "opendap" in url:
         dev1_url = re.sub("opendap", "opendap-dev1-west.intra", url)
     else:
         dev1_url = re.sub("ooinet","ooinet-dev1-west.intra", url)
-    OOINet.URLS[key] = dev1_url
+    Dev01.URLS[key] = dev1_url
 
-OOINet.URLS
+# +
+#OOINet.search_datasets(array=instrument="PHSEN")
+# -
 
-OOINet.search_datasets()
+# ### Production (OOINet) Data
 
-refdes = "CP01CNSM-MFD35-05-PCO2WB000"
+refdes = "GI03FLMA-RIM01-02-CTDMOG040"
 
-OOINet.get_datastreams(refdes)
+datastreams = OOINet.get_datastreams(refdes)
+datastreams
+
+metadata = OOINet.get_metadata(refdes)
+for m in metadata["particleKey"]:
+    if "ph" in m:
+        print(m)
+
+deployments = OOINet.get_deployments(refdes)
+deployments
 
 method = "recovered_inst"
-stream = "pco2w_abc_instrument"
+stream = "ctdmo_ghqr_instrument_recovered"
 
-thredds_url = "https://opendap-dev1-west.intra.oceanobservatories.org/thredds/catalog/ooi/areed@whoi.edu/20211207T183204327Z-CP03ISSM-RID27-03-CTDBPC000-recovered_inst-ctdbp_cdef_instrument_recovered/catalog.html"
+
+def clean_catalog(catalog, stream, deployments):
+    """Clean up the netCDF catalog of unwanted datasets"""
+    # Parse the netCDF datasets to only get those with the datastream in its name
+    datasets = []
+    for dset in catalog:
+        check = dset.split("/")[-1]
+        if stream in check:
+            datasets.append(dset)
+        else:
+            pass
+    
+    # Next, check that the netCDF datasets are not empty by getting the timestamps in the
+    # datasets and checking if they are 
+    catalog = datasets
+    datasets = []
+    for dset in catalog:
+        # Get the timestamps
+        timestamps = dset.split("_")[-1].replace(".nc","").split("-")
+        t1, t2 = timestamps
+        # Check if the timestamps are equal
+        if t1 == t2:
+            pass
+        else:
+            datasets.append(dset)
+            
+    # Next, determine if the dataset is either for the given instrument
+    # or an ancillary instrument which supplies and input variable
+    catalog = datasets
+    datasets = []
+    ancillary = []
+    for dset in catalog:
+        if re.search(stream, dset.split("/")[-1]) is None:
+            ancillary.append(dset)
+        else:
+            datasets.append(dset)
+            
+    # Finally, check that deployment numbers match what is in deployments metadata
+    catalog = datasets
+    datasets = []
+    for dset in catalog:
+        dep = re.findall("deployment[\d]{4}", dset)[0]
+        depNum = int(dep[-4:])
+        if depNum not in list(deployments["deploymentNumber"]):
+            pass
+        else:
+            datasets.append(dset)
+            
+    return datasets
+
 
 thredds_url = OOINet.get_thredds_url(refdes, method, stream)
-thredds_url
+#thredds_url = "https://opendap-west.oceanobservatories.org/thredds/catalog/ooi/areed@whoi.edu/20220329T172343104Z-CP03ISSM-RID27-03-CTDBPC000-recovered_inst-ctdbp_cdef_instrument_recovered/catalog.html"
 
+# Access the catalog
 catalog = OOINet.get_thredds_catalog(thredds_url)
 catalog
 
-catalog = sorted(OOINet.parse_catalog(catalog, exclude=["ENG", "blank"]))
+# Clean up the catalog to eliminate "empty" datasets
+catalog = clean_catalog(catalog, stream, deployments)
+catalog
+
+catalog = [x for x in catalog if "blank" not in x]
 catalog
 
 OOINet.REFDES = refdes
 
-data = OOINet.load_netCDF_datasets(catalog)
-data
+production_data = OOINet.load_netCDF_datasets(catalog)
+
+production_data
+
+# +
+#water_files = [x for x in catalog if "water_recovered" in x.split("/")[-1]]
+#air_files = [x for x in catalog if "air_recovered" in x.split("/")[-1]]
+#water_files
+# -
+
+# ### Dev01 Data
+
+dev01_thredds_url = Dev01.get_thredds_url(refdes, method, stream)
+#dev01_thredds_url = 'https://opendap-dev1-west.intra.oceanobservatories.org/thredds/catalog/ooi/areed@whoi.edu/20220329T173040530Z-CP03ISSM-RID27-03-CTDBPC000-recovered_inst-ctdbp_cdef_instrument_recovered/catalog.html'
+
+dev01_catalog = Dev01.get_thredds_catalog(dev01_thredds_url)
+dev01_catalog
+
+dev01_catalog = clean_catalog(dev01_catalog, stream, deployments)
+dev01_catalog
+
+dev01_catalog = [x for x in dev01_catalog if "blank" not in x]
+
+Dev01.REFDES = refdes
+
+dev01_data = Dev01.load_netCDF_datasets(dev01_catalog)
+dev01_data
+
+
 
 # ### Load netCDF files from local directory
 
 save_dir = f"/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/QARTOD/Testing/data/testing/{refdes}/"
 
 netCDF_files = [save_dir+f for f in os.listdir(save_dir)]
+#water_files = [x for x in netCDF_files if "water_recovered" in x.split("/")[-1]]
+#air_files = [x for x in netCDF_files if "air_recovered" in x.split("/")[-1]]
+
 netCDF_files
 
 from dask.diagnostics import ProgressBar
@@ -103,26 +197,60 @@ ds.attrs["Location_name"] = " ".join((vocab["tocL1"].iloc[0],
 
 
 # -
+import gc
+gc.collect()
 
-
+ds
 
 # ## QARTOD Comparison
 
+param = "partial_pressure_co2_ssw"
+data_variables = []
+for var in ds.variables:
+    if param in var and "qc" not in var:
+        print(var)
+        data_variables.append(var)
+
 # +
 # First, cut down the dataset size to be more managable
+ds = ds[data_variables]
+
+#
 # -
 
-dataVars = ["pco2_seawater", "pco2_seawater_qartod_executed"]
-pco2w = data[dataVars]
-pco2w
+#del ds
+gc.collect()
+
+# ### Production vs Dev01
+# First, check that Dev01 datasets matched released production datasets flagging
+
+param = "practical_salinity"
+
+# Cut the production data down to the size of the dev01 data
+tmin = dev01_data["time"].min()
+tmax = dev01_data["time"].max()
+production_data = production_data.sel(time=slice(tmin, tmax))
+dev01_data = dev01_data.sel(time=slice(tmin, tmax))
+
+comparison = (production_data[f"{param}_qartod_results"] == dev01_data[f"{param}_qartod_results"])
+comparison
+
+(~comparison).sum().compute()
+
+value_check = (production_data[param] == dev01_data[param])
+value_check
+
+production_data[f"{param}_qartod_results"][~comparison]
+
+dev01_data[f"{param}_qartod_results"][~comparison]
 
 # ### QARTOD values
 # Next, load the QARTOD tables from github and parse them into dictionaries.
 #
 # Changes: None
 
-inst = "pco2w"
-param = "pco2_seawater"
+inst = "CTDMO"
+#param = "ctdbp_seawater_temperature"
 
 import io
 import json
@@ -181,7 +309,7 @@ def loadQARTOD(refDes,param,sensorType):
     return(grossRange_dict,clim_dict)
 
 
-grossRange_dict, clim_dict = loadQARTOD(refdes, param, inst)
+grossRange_dict, clim_dict = loadQARTOD(refdes, param, inst.lower())
 grossRange_dict, clim_dict
 
 # ### Add Climatology Values
@@ -241,11 +369,88 @@ def add_climatology_values(ds, param, clim_dict):
         ds[varNameMax][(ds.time.dt.month == month)] = climatology[1]
         
     return ds
+# +
+import dask.array as da
+import dask.dataframe as dd
+from dask.diagnostics import ProgressBar
+import ast
+
+def build_climatology_array(ds, clim_dict, press_param, param_name, platform):
+    """Adds climatology mins and maxes to the dataset timeseries
+    
+    Parameters
+    ----------
+    ds: xarray.Dataset
+        Dataset to add climatology values to, with primary dimension "time"
+    param: str
+        Name of parameter in the passed xarray.Dataset which to add
+        climatology values to
+    press_param: str
+        Name of the pressure parameter for profilers and other vehicles with
+        climatology values that are pressure dependent
+    clim_dict: dict
+        A dictionary of the climatology values for the given dataset
+        loaded from the qartod gitHub repo
+        
+    Returns
+    -------
+    ds: xarray.Dataset
+        An xarray dataset with climatology mins and maxes added for the given
+        parameter (param) to the dataset
+        
+    Note: Will need to add a pressure function to make this match the original functionality
+    """
+    ds['climatologyMin'] = ds[param_name].astype('float') * np.nan
+    ds['climatologyMax'] = ds[param_name].astype('float') * np.nan
+    
+    # Get the months
+    time = da.from_array(ds.time.dt.month)
+    months = np.unique(time).compute()
+    
+    # Iterate through the months
+    # This is the slow part - it takes 12*num_press_brackets*O(NlogN) time
+    for month in months:
+        # First, check if need to filter again by pressure
+        if platform == "profiler":
+            # Get the pressure dictionary for the given month
+            pres_dict = clim_dict.get(str(month))
+            for pressure_range in pres_dict.keys():
+                # Parse the pressure range
+                p = re.search(r'\[(.+),(.+)\]', pressure_range)
+                pmin, pmax = float(p.group(1)), float(p.group(2))
+                # Parse the climatology
+                climatology = pres_dict.get(pressure_range)
+                c = re.search(r'\[(.+),(.+)\]', climatology)
+                cmin, cmax = float(c.group(1)), float(c.group(2))
+                # Now assign the climatology min/max
+                ds["climatologyMin"][(ds.time.dt.month == month) &
+                                     (ds[press_param] >= pmin) & 
+                                     (ds[press_param] <= pmax)] = cmin
+                ds["climatologyMax"][(ds.time.dt.month == month) &
+                                     (ds[press_param] >= pmin)  &
+                                     (ds[press_param] <= pmax)] = cmax
+        elif platform == "fixed":
+            climatology = ast.literal_eval(clim_dict[str(month)][str([0, 0])])
+            cmin, cmax = climatology[0], climatology[1]
+            ds["climatologyMin"][(ds.time.dt.month == month)] = cmin
+            ds["climatologyMax"][(ds.time.dt.month == month)] = cmax
+        else:
+            pass
+        
+    return ds
 
 
 # -
 
-pco2w = add_climatology_values(pco2w, param, clim_dict)
+press_param = None
+platform = "fixed"
+
+toy_data = production_data
+toy_data["practical_salinity_qartod_results"][0:10] = 3
+
+production_data = build_climatology_array(production_data, clim_dict, press_param, param, platform)
+dev01_data = build_climatology_array(dev01_data, clim_dict, press_param, param, platform)
+toy_data = build_climatology_array(toy_data, clim_dict, press_param, param, platform)
 
 
 # ### Add QARTOD flags
@@ -268,8 +473,8 @@ def create_QARTOD_flags(ds, param, grossRange):
     # Climatology flags
     clim_flag = f"{param}_clim_flag"
     ds[clim_flag] = ds[param].astype("int64") * 0 + 1
-    ds[clim_flag][(ds[f"{param}_climatologyMin"].isnull()) | (ds[f"{param}_climatologyMax"].isnull())] = 2
-    ds[clim_flag][(ds[param] < ds[f"{param}_climatologyMin"]) | (ds[param] > ds[f"{param}_climatologyMax"])] = 3
+    ds[clim_flag][(ds["climatologyMin"].isnull()) | (ds["climatologyMax"].isnull())] = 2
+    ds[clim_flag][(ds[param] < ds["climatologyMin"]) | (ds[param] > ds["climatologyMax"])] = 3
     
     # Check for not evaluated locations
     not_eval = ds[param].isnull()
@@ -279,8 +484,9 @@ def create_QARTOD_flags(ds, param, grossRange):
     return ds
 
 
-pco2w = create_QARTOD_flags(pco2w, param, grossRange_dict)
-pco2w
+production_data = create_QARTOD_flags(production_data, param, grossRange_dict)
+dev01_data = create_QARTOD_flags(dev01_data, param, grossRange_dict)
+toy_data = create_QARTOD_flags(toy_data, param, grossRange_dict)
 
 
 # ### Compare test values
@@ -317,8 +523,28 @@ def run_comparison(ds, param):
     return ds
 
 
-pco2w = run_comparison(pco2w, param)
-pco2w
+toy_data[f"{param}_qartod_executed"][0:10] = '33'
+
+production_data = run_comparison(production_data, param)
+dev01_data = run_comparison(dev01_data, param)
+toy_data = run_comparison(toy_data, param)
+
+
+for x in production_data.practical_salinity_qartod_executed:
+    if x.values != '11' | x.values:
+        print(x.time.values)
+        print(x.values)
+
+dev01_data.practical_salinity_qartod_executed.load()
+
+np.unique(dev01_data.practical_salinity_qartod_executed)
+
+production_data.practical_salinity_qartod_executed.where((production_data.practical_salinity_qartod_executed == "Bad HeapObject.dataSize=id=16, refCount=0, dataSize=452117892851") |
+                                                        (production_data.practical_salinity_qartod_executed == "Bad HeapObject.dataSize=id=16, refCount=0, dataSize=533495497202"), drop=True)
+
+production_data
+
+x.values.dtype == '<U2'
 
 # ### Execute the comparison
 # So far, all the work we've done hasn't actually run any processing. Everything has been done as a set of dask instructions to execute when we call compute().
@@ -328,11 +554,66 @@ pco2w
 from dask.diagnostics import ProgressBar
 
 with ProgressBar():
-    for var in pco2w.variables:
+    for var in production_data.variables:
         if "comparison" in var:
-            result = pco2w[var].sum().compute()
+            result = production_data[var].sum().compute()
             print(f"Missed flags for {var}: {result.values}")
 
+with ProgressBar():
+    for var in dev01_data.variables:
+        if "comparison" in var:
+            result = dev01_data[var].sum().compute()
+            print(f"Missed flags for {var}: {result.values}")
+
+with ProgressBar():
+    for var in toy_data.variables:
+        if "comparison" in var:
+            result = toy_data[var].sum().compute()
+            print(f"Missed flags for {var}: {result.values}")
+
+# ### Plot some data with bad data flagged
+
+import matplotlib.pyplot as plt
+# %matplotlib inline
+
+# +
+fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(15, 10))
+
+ax[0].plot(production_data.time, production_data[param], linestyle="", marker=".", color="tab:blue")
+ax[0].plot(production_data.where((production_data[f"{param}_qartod_clim"] == 3))["time"],
+           production_data.where((production_data[f"{param}_qartod_clim"] == 3))[param],
+           color="tab:red", marker=".", linestyle="")
+ax[0].grid()
+ax[0].set_ylim()
+
+ax[1].plot(production_data.time, production_data[param], linestyle="", marker=".", color="tab:blue")
+ax[1].plot(production_data.where(production_data[f"{param}_clim_flag"] == 3)["time"],
+           production_data.where(production_data[f"{param}_clim_flag"] == 3)[param],
+           color="tab:red", marker=".", linestyle="")
+ax[1].grid()
+
+# +
+fig, ax = plt.subplots(nrows=2, ncols=1, figsize=(15, 10))
+
+ax[0].plot(dev01_data.time, dev01_data[param], linestyle="", marker=".", color="tab:blue")
+ax[0].plot(dev01_data.where((dev01_data[f"{param}_qartod_clim"] == 3))["time"],
+           dev01_data.where((dev01_data[f"{param}_qartod_clim"] == 3))[param],
+           color="tab:red", marker=".", linestyle="")
+ax[0].grid()
+
+ax[1].plot(dev01_data.time, dev01_data[param], linestyle="", marker=".", color="tab:blue")
+ax[1].plot(dev01_data.where(dev01_data[f"{param}_clim_flag"] == 3)["time"],
+           dev01_data.where(dev01_data[f"{param}_clim_flag"] == 3)[param],
+           color="tab:red", marker=".", linestyle="")
+ax[1].grid()
+
+
+# -
+
+# ### To Do
+# Need to add in pressure bracket handling so that I can do profilers (although I don't have any profilers for CGSN up on Dev1). 
+#
+# Also need to add in function to print out the time-stamp of when qartod flags are mis-flaged.
 
 def pressureBracket(pressure,clim_dict):
     bracketList = []

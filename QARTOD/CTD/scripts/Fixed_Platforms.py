@@ -6,9 +6,9 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.6.0
+#       jupytext_version: 1.13.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -52,7 +52,7 @@ import matplotlib.pyplot as plt
 # #### Set OOINet API access
 # In order access and download data from OOINet, need to have an OOINet api username and access token. Those can be found on your profile after logging in to OOINet. Your username and access token should NOT be stored in this notebook/python script (for security). It should be stored in a yaml file, kept in the same directory, named user_info.yaml.
 
-userinfo = yaml.load(open("../../../user_info.yaml"))
+userinfo = yaml.load(open("../../../user_info.yaml"), Loader=yaml.SafeLoader)
 username = userinfo["apiname"]
 token = userinfo["apikey"]
 
@@ -168,7 +168,7 @@ data_vars = [""]
 
 
 
-
+thredds_url = OOINet.get_thredds_url()
 
 
 
