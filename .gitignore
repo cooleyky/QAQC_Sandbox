@@ -7,6 +7,8 @@ __pycache__/
 *.ipynb
 *.asv
 *.csv
+*.cap
+*.xlsx
 
 # Ignore Documents, Data Files, and other results
 **/data/*
