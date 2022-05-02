@@ -5,10 +5,10 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.13.4
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -28,16 +28,18 @@
 import csv
 import re
 import os
+import sys
 import shutil
 import numpy as np
 import pandas as pd
+
+sys.path.append('/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Calibration/Parsers/')
+sys.path.append("..")
 
 from utils import *
 
 from zipfile import ZipFile
 import string
-
-sys.path.append('/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Calibration/Parsers/')
 
 from Parsers.OPTAACalibration import OPTAACalibration
 
@@ -49,7 +51,7 @@ from Parsers.OPTAACalibration import OPTAACalibration
 
 csv_dir = '/home/andrew/Documents/OOI-CGSN/asset-management/'
 #source_dir = '/media/andrew/OS/Users/areed/Documents/Project_Files/Records/Instrument_Records/OPTAA/OPTAA_Cal/'
-source_dir = '/home/andrew/Downloads/'
+source_dir = '/home/andrew/Documents/OOI-CGSN/QAQC_Sandbox/Calibration/Parsers/Data_Sources/OPTAA/'
 
 # **====================================================================================================================**
 # ### Find & Parse the source file
@@ -57,17 +59,17 @@ source_dir = '/home/andrew/Downloads/'
 # 1. Instrument UID: This is needed to initialize the OPTAA parser
 # 2. Source file: This is the full path to the source file. Zip files are acceptable input.
 
-source_name = '257'
+source_name = '245'
 for file in os.listdir(source_dir):
     if source_name in file:
         source_file = file
         print(source_file)
 
-source_file = 'OPTAA-D_AC-S_SN_257_Calibration_Files_2019-10-29.zip'
+source_file = source_file
 
 # Initialize the parser:
 
-optaa = OPTAACalibration('CGINS-OPTAAD-00257')
+optaa = OPTAACalibration('CGINS-OPTAAD-00245')
 
 # Read in the calibration coefficients:
 
@@ -134,7 +136,7 @@ source_tcarray.head()
 # **====================================================================================================================**
 # Load the csv from asset management in order to compare
 
-csv_filename = 'calibration/OPTAAD/CGINS-OPTAAD-00257__20191029.csv'
+csv_filename = 'calibration/OPTAAD/CGINS-OPTAAD-00245__20211110.csv'
 csv_file = pd.read_csv(csv_dir+csv_filename)
 
 csv_file.sort_values(by='name', inplace=True)
@@ -143,8 +145,8 @@ csv_file.reset_index(inplace=True, drop=True)
 
 csv_file['value'] = csv_file['value'].apply(reformat_arrays)
 
-taarray = pd.read_csv(csv_dir + 'calibration/OPTAAD/CGINS-OPTAAD-00257__20191029__CC_taarray.ext',header=None)
-tcarray = pd.read_csv(csv_dir + 'calibration/OPTAAD/CGINS-OPTAAD-00257__20191029__CC_tcarray.ext',header=None)
+taarray = pd.read_csv(csv_dir + 'calibration/OPTAAD/CGINS-OPTAAD-00245__20211110__CC_taarray.ext',header=None)
+tcarray = pd.read_csv(csv_dir + 'calibration/OPTAAD/CGINS-OPTAAD-00245__20211110__CC_tcarray.ext',header=None)
 
 taarray
 
@@ -159,6 +161,10 @@ source_taarray == taarray
 source_taarray[source_taarray != taarray].dropna(how='all').dropna(how='all',axis=1)
 
 taarray[source_taarray != taarray].dropna(how='all').dropna(how='all',axis=1)
+
+source_tcarray[source_tcarray != tcarray].dropna(how='all').dropna(how='all',axis=1)
+
+tcarray[source_tcarray != tcarray].dropna(how='all').dropna(how='all',axis=1)
 
 # **====================================================================================================================**
 # # OPTAA Parser
