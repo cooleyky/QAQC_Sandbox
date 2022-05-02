@@ -6,6 +6,7 @@ __pycache__/
 .ipynb_checkpoints/
 *.ipynb
 *.asv
+*.csv
 
 # Ignore Documents, Data Files, and other results
 **/data/*
