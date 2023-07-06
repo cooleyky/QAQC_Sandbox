@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.13.4
+#       jupytext_version: 1.14.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -23,125 +23,187 @@ import xarray as xr
 import warnings
 warnings.filterwarnings("ignore")
 
-# Import the OOI M2M tool
-sys.path.append("/home/andrew/Documents/OOI-CGSN/ooinet/ooinet/")
-from m2m import M2M
+from ooinet import M2M
 
-# Import user info for connecting to OOINet via M2M
-userinfo = yaml.load(open("../../../../QAQC_Sandbox/user_info.yaml"), Loader=yaml.FullLoader)
-username = userinfo["apiname"]
-token = userinfo["apikey"]
-
-OOINet = M2M(username, token)
-Dev01 = M2M(username, token)
+import dask
+from dask.diagnostics import ProgressBar
 
 # Reset the M2M location to ooinet-dev1-west.intra.oceanobservatories.org
-for key in Dev01.URLS:
-    url = Dev01.URLS.get(key)
+Dev01_urls = {}
+for key in M2M.URLS:
+    url = M2M.URLS.get(key)
     if "opendap" in url:
         dev1_url = re.sub("opendap", "opendap-dev1-west.intra", url)
     else:
         dev1_url = re.sub("ooinet","ooinet-dev1-west.intra", url)
-    Dev01.URLS[key] = dev1_url
+    Dev01_urls[key] = dev1_url
 
-# +
-#OOINet.search_datasets(array=instrument="PHSEN")
-# -
+# First, select a reference designator
+datasets = M2M.search_datasets(array="CP01CNSM", instrument="CTDBP", English_names=True)
+datasets
 
 # ### Production (OOINet) Data
 
-refdes = "GI03FLMA-RIM01-02-CTDMOG040"
+refdes = "CP01CNSM-RID27-03-CTDBPC000"
+array, node, sensor = refdes.split("-", 2)
 
-datastreams = OOINet.get_datastreams(refdes)
-datastreams
-
-metadata = OOINet.get_metadata(refdes)
-for m in metadata["particleKey"]:
-    if "ph" in m:
-        print(m)
-
-deployments = OOINet.get_deployments(refdes)
+deployments = M2M.get_deployments(refdes)
 deployments
 
-method = "recovered_inst"
-stream = "ctdmo_ghqr_instrument_recovered"
+datastreams = M2M.get_datastreams(refdes)
+datastreams
 
-
-def clean_catalog(catalog, stream, deployments):
-    """Clean up the netCDF catalog of unwanted datasets"""
-    # Parse the netCDF datasets to only get those with the datastream in its name
-    datasets = []
-    for dset in catalog:
-        check = dset.split("/")[-1]
-        if stream in check:
-            datasets.append(dset)
-        else:
-            pass
-    
-    # Next, check that the netCDF datasets are not empty by getting the timestamps in the
-    # datasets and checking if they are 
-    catalog = datasets
-    datasets = []
-    for dset in catalog:
-        # Get the timestamps
-        timestamps = dset.split("_")[-1].replace(".nc","").split("-")
-        t1, t2 = timestamps
-        # Check if the timestamps are equal
-        if t1 == t2:
-            pass
-        else:
-            datasets.append(dset)
-            
-    # Next, determine if the dataset is either for the given instrument
-    # or an ancillary instrument which supplies and input variable
-    catalog = datasets
-    datasets = []
-    ancillary = []
-    for dset in catalog:
-        if re.search(stream, dset.split("/")[-1]) is None:
-            ancillary.append(dset)
-        else:
-            datasets.append(dset)
-            
-    # Finally, check that deployment numbers match what is in deployments metadata
-    catalog = datasets
-    datasets = []
-    for dset in catalog:
-        dep = re.findall("deployment[\d]{4}", dset)[0]
-        depNum = int(dep[-4:])
-        if depNum not in list(deployments["deploymentNumber"]):
-            pass
-        else:
-            datasets.append(dset)
-            
-    return datasets
-
-
-thredds_url = OOINet.get_thredds_url(refdes, method, stream)
-#thredds_url = "https://opendap-west.oceanobservatories.org/thredds/catalog/ooi/areed@whoi.edu/20220329T172343104Z-CP03ISSM-RID27-03-CTDBPC000-recovered_inst-ctdbp_cdef_instrument_recovered/catalog.html"
-
-# Access the catalog
-catalog = OOINet.get_thredds_catalog(thredds_url)
-catalog
-
-# Clean up the catalog to eliminate "empty" datasets
-catalog = clean_catalog(catalog, stream, deployments)
-catalog
-
-catalog = [x for x in catalog if "blank" not in x]
-catalog
-
-OOINet.REFDES = refdes
-
-production_data = OOINet.load_netCDF_datasets(catalog)
-
-production_data
 
 # +
-#water_files = [x for x in catalog if "water_recovered" in x.split("/")[-1]]
-#air_files = [x for x in catalog if "air_recovered" in x.split("/")[-1]]
-#water_files
+# Get the data for a given deployment
+
+# +
+def get_catalog(refdes, method, stream, deployments, goldCopy):
+    thredds_url = M2M.get_thredds_url(refdes, method, stream, goldCopy=goldCopy)
+    catalog = M2M.get_thredds_catalog(thredds_url)
+    catalog = M2M.clean_catalog(catalog, stream, deployments)
+    return catalog
+
+def get_netCDF_files(refdes, datastreams, deployments, goldCopy=True):
+    files = {}
+    for index in datastreams.index:
+        # Get the method and stream
+        method = datastreams.loc[index]["method"]
+        stream = datastreams.loc[index]["stream"]
+        
+        # Get the catalog
+        catalog = get_catalog(refdes, method, stream, deployments, goldCopy)
+        
+        # Replace the 
+        if goldCopy:
+            dodsC = M2M.URLS["goldCopy_dodsC"]
+        else:
+            dodsC = M2M.URLS["dodsC"]
+            
+        catalog = sorted([re.sub("catalog.html\?dataset=", dodsC, file) for file in catalog])
+        
+        # Return the results
+        files.update({
+            method: catalog
+        })
+        
+    return files
+
+
 # -
+
+files = get_netCDF_files(refdes, datastreams, deployments)
+files
+
+depNum=8
+
+deployment = str(8).zfill(4)
+for key in files.keys():
+    files[key] = [f for f in files[key] if f'deployment{str(deployment).zfill(4)}' in f]
+
+
+
+# +
+@dask.delayed
+def preprocess_datalogger(ds):
+    ds = process_file(ds)
+    ds = ctdbp_datalogger(ds)
+    ds = swap_timestamps(ds)
+    gc.collect()
+    return ds
+
+@dask.delayed
+def preprocess_instrument(ds):
+    ds = process_file(ds)
+    ds = ctdbp_instrument(ds)
+    gc.collect()
+    return ds
+
+def swap_timestamps(ds):
+    """
+    Swaps the timestamps from the host to the instrument timestamp
+    for the CTDBPs
+    """
+    if "internal_timestamp" in ds.variables:
+        # Calculate the timestamp
+        inst_time = ds.internal_timestamp.to_pandas()
+        attrs = ds.internal_timestamp.attrs
+        # Convert the time
+        inst_time = inst_time.apply(lambda x: np.datetime64(int(x), 's'))
+        # Create a DataArary
+        da = xr.DataArray(inst_time, attrs=attrs)
+        ds['internal_timestamp'] = da
+    ds = ds.set_coords(["internal_timestamp"])
+    ds = ds.swap_dims({"time":"internal_timestamp"})
+    ds = ds.reset_coords("time")
+    ds = ds.rename_vars({"time":"host_time"})
+    ds["host_time"].attrs = {
+        "long_name": "DCL Timestamp",
+        "comment": ("The timestamp that the instrument data as recorded by the mooring data "
+                    "concentration logger (DCL)")
+    }
+    ds = ds.rename({"internal_timestamp":"time"})
+    return ds
+
+
+# -
+
+for index in datastreams.index:
+    # Get the method and stream
+    method = datastreams.loc[index]["method"]
+    stream = datastreams.loc[index]["stream"]
+
+    # Get the URL - first try the goldCopy thredds server
+    thredds_url = M2M.get_thredds_url(refdes, method, stream, goldCopy=True)
+
+    # Get the catalog
+    catalog = M2M.get_thredds_catalog(thredds_url)
+
+    # Clean the catalog
+    catalog = M2M.clean_catalog(catalog, stream, deployments)
+    
+    # Get the links to the THREDDs server and load the data
+    dodsC = M2M.URLS["goldCopy_dodsC"]
+    
+    # Not all datasets have made it into the goldCopy THREDDS - in that case, need to request
+    # from OOINet
+    if len(catalog) == 0:
+        # Get the URL - first try the goldCopy thredds server
+        thredds_url = M2M.get_thredds_url(refdes, method, stream, goldCopy=False)
+
+        # Get the catalog
+        catalog = M2M.get_thredds_catalog(thredds_url)
+
+        # Clean the catalog
+        catalog = M2M.clean_catalog(catalog, stream, deployments)
+
+        # Get the links to the THREDDs server and load the data
+        dodsC = M2M.URLS["dodsC"]
+    
+    # Now load the data
+    if method == "telemetered":
+        tele_files = [re.sub("catalog.html\?dataset=", dodsC, file) for file in catalog]
+        zs = [preprocess_datalogger(xr.open_dataset(tfile)) for tfile in tele_files]
+        print(f"----- Load {method}-{stream} data -----")
+        with ProgressBar():
+            tele_data = xr.concat([ds.chunk() for ds in dask.compute(*zs)], dim="time")
+    elif method == "recovered_host":
+        host_files = [re.sub("catalog.html\?dataset=", dodsC, file) for file in catalog]
+        zs = [preprocess_datalogger(xr.open_dataset(hfile)) for hfile in host_files]
+        print(f"----- Load {method}-{stream} data -----")
+        with ProgressBar():
+            host_data = xr.concat([ds.chunk() for ds in dask.compute(*zs)], dim="time")
+    elif method == "recovered_inst":
+        inst_files = [re.sub("catalog.html\?dataset=", dodsC, file) for file in catalog]
+        zs = [preprocess_instrument(xr.open_dataset(ifile)) for ifile in inst_files]
+        print(f"----- Load {method}-{stream} data -----")
+        with ProgressBar():
+            inst_data = xr.concat([ds.chunk() for ds in dask.compute(*zs)], dim="time")
+    else:
+        pass
+
+merged_data = combine_datasets(tele_data, host_data, inst_data, None)
+merged_data
 
 # ### Dev01 Data
 
