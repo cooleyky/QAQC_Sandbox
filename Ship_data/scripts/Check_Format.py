@@ -6,7 +6,7 @@
 #       extension: .py
 #       format_name: light
 #       format_version: '1.5'
-#       jupytext_version: 1.13.4
+#       jupytext_version: 1.14.1
 #   kernelspec:
 #     display_name: Python 3 (ipykernel)
 #     language: python
@@ -33,7 +33,7 @@ import numpy as np
 # #### Summary Sheet
 # Load the summary sheet. Make sure to navigate to the correct directory and have the correct file name entered.
 
-summary_sheet = pd.read_excel("../data/Pioneer-13/Pioneer-13_AR39_Discrete_Summary_2022-02-24_ACR.xlsx")
+summary_sheet = pd.read_excel("../data/Pioneer-10/Pioneer-10_AR28_Discrete_Summary_2022-12-01_ACR.xlsx")
 summary_sheet.head()
 
 # #### Cruise Names
@@ -166,18 +166,18 @@ schema = Schema([
     Column('CTD Conductivity 2 [S/m]', [DecimalValidation, InRangeValidation(0,6) | MatchesPatternValidation("-9999999")]),
     Column('CTD Conductivity 2 Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     
-    # Practical salinity should be within ocean ranges (32, 37) and floats
-    Column('CTD Salinity 1 [psu]', [DecimalValidation, InRangeValidation(32, 37) | MatchesPatternValidation("-9999999")]),
-    Column('CTD Salinity 2 [psu]', [DecimalValidation, InRangeValidation(32, 37) | MatchesPatternValidation("-9999999")]),
+    # Practical salinity should be within ocean ranges (31, 37) and floats
+    Column('CTD Salinity 1 [psu]', [DecimalValidation, InRangeValidation(31, 37) | MatchesPatternValidation("-9999999")]),
+    Column('CTD Salinity 2 [psu]', [DecimalValidation, InRangeValidation(31, 37) | MatchesPatternValidation("-9999999")]),
     
     # Dissolved Oxygen & Sat concentrations should be within ocean ranges (0, 9) & decimal floats
     Column('CTD Oxygen [mL/L]', [DecimalValidation, InRangeValidation(0, 9) | MatchesPatternValidation("-9999999")]),
     Column('CTD Oxygen Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
-    Column('CTD Oxygen Saturation [mL/L]', [DecimalValidation, InRangeValidation(5,9) | MatchesPatternValidation("-9999999")]),
+    Column('CTD Oxygen Saturation [mL/L]', [DecimalValidation, InRangeValidation(4,9) | MatchesPatternValidation("-9999999")]),
     
-    # Fluorescence - we don't measure this, should be fill value -9999999
-    Column('CTD Fluorescence [mg/m^3]', [MatchesPatternValidation("-9999999")]),
-    Column('CTD Fluorescence Flag', [MatchesPatternValidation("-9999999")]),
+    # Fluorescence - most values should be within 1-10 ug/L with an offset
+    Column('CTD Fluorescence [mg/m^3]', [DecimalValidation, InRangeValidation(-1,10) | MatchesPatternValidation("-9999999")]),
+    Column('CTD Fluorescence Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     
     # Beam Attenuation (0, 1) and Transmission (0, 100)
     Column('CTD Beam Attenuation [1/m]', [DecimalValidation, InRangeValidation(-0.1,1) | MatchesPatternValidation("-9999999")]),
@@ -217,13 +217,13 @@ schema = Schema([
     Column('Discrete Nutrients Replicate Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     
     # Salinity: Check that the ranges are within physical ocean ranges
-    Column('Discrete Salinity [psu]', [InRangeValidation(32, 37) | MatchesPatternValidation("-9999999")]),
+    Column('Discrete Salinity [psu]', [InRangeValidation(31, 37) | MatchesPatternValidation("-9999999")]),
     Column('Discrete Salinity Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     Column('Discrete Salinity Replicate Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     
     # Carbon System measurement: Check within ocean ranges; don't collect/measure pCO2
     #     Alkalinity: Should be between 2200 - 2400
-    Column('Discrete Alkalinity [umol/kg]', [InRangeValidation(2200, 2400) | MatchesPatternValidation("-9999999")]),
+    Column('Discrete Alkalinity [umol/kg]', [InRangeValidation(2150, 2450) | MatchesPatternValidation("-9999999")]),
     Column('Discrete Alkalinity Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     Column('Discrete Alkalinity Replicate Flag', [MatchesPatternValidation(r"\*0|1{16}") | MatchesPatternValidation("-9999999")]),
     #     DIC: Range should be 1900 - 2300
@@ -259,7 +259,11 @@ errors = schema.validate(summary_sheet)
 for error in errors:
     if "Calculated" in error.column:
         pass
-    elif "pH" in error.column or "pCO2" in error.column or "DIC" in error.column or "Alkalinity" in error.column:
+    elif "Cruise" in error.column:
+        pass
+    elif "Beam" in error.column:
+        pass
+    elif "Temperature 2" in error.column:
         pass
     else:
         print(error)
@@ -291,14 +295,18 @@ metadata_schema = Schema([
 
 # Run the validation on a station-by-station basis:
 
-for station in metadata["Station"].unique():
-    # Get the data associated with a particular station
-    station_data = metadata[metadata["Station"] == station]
+for cruise in metadata["Cruise"].unique():
+    cruise_data = metadata[metadata["Cruise"] == cruise]
+    for station in cruise_data["Station"].unique():
+        # Get the data associated with a particular station
+        station_data = cruise_data[cruise_data["Station"] == station]
     
-    # Run it through the validation checker
-    merrors = metadata_schema.validate(station_data)
-    for error in merrors:
-        print(error)
+        # Run it through the validation checker
+        merrors = metadata_schema.validate(station_data)
+        for error in merrors:
+            print(error)
+
+
 
 
 
