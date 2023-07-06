@@ -5,10 +5,10 @@
 #     text_representation:
 #       extension: .py
 #       format_name: light
-#       format_version: '1.4'
-#       jupytext_version: 1.2.4
+#       format_version: '1.5'
+#       jupytext_version: 1.14.1
 #   kernelspec:
-#     display_name: Python 3
+#     display_name: Python 3 (ipykernel)
 #     language: python
 #     name: python3
 # ---
@@ -76,7 +76,7 @@ len(csv_dict.keys())
 for uid in csv_dict.keys():
     count = count + len(csv_dict[uid])
 print(count)
-    
+
 
 # Load an example of the csv file to determine the number of calibration coefficients per instrument that need to be checked.
 
@@ -376,7 +376,6 @@ file
 uids = sorted( list( set( CTDBPP['UID'])))
 
 
-# +
 # Now I need to load the all of the csv files based on their UID
 def load_csv_info(csv_dict,filepath):
     """
@@ -410,8 +409,6 @@ def load_csv_info(csv_dict,filepath):
         
     return csv_cals
 
-
-# -
 
 qct_dict = {}
 for uid in uids:
@@ -757,7 +754,7 @@ cal_errors = {}
 for uid in uids:
     ce = search_for_errors(comparison[uid])
     cal_errors.update({uid:ce})
-    
+
 
 cal_errors
 
@@ -863,7 +860,7 @@ for file in os.listdir('../../GitHub/OOI-Integration/asset-management/calibratio
     if date in deploy_dates:
         cal_csvs = cal_csvs.append(file)
 print(cal_csvs)
-        
+
 
 cal_csvs
 
