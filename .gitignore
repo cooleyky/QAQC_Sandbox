@@ -92,3 +92,4 @@ github_user.yaml
 *.odp
 *~lock.*
 *.zip
+*.json
